@@ -5,10 +5,11 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
-- **Current phase:** 0 (not started)
-- **Last completed:** repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
-- **Next action:** Phase 0 — folder skeleton, `.env.example`, venv, `requirements.txt`
-- **Blockers / decisions pending:** Kaggle dataset, OpenAI model, Clue export format (see Open questions)
+- **Current phase:** 2 (Phases 0 and 1 done; report template deferred, see Phase 1)
+- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
+- **Next action:** Phase 2 — Google Cloud + Sheets service account; write `scripts/normalise.py` for both Kaggle sets; write `scripts/synth_perimenopause.py`; test each API key alone. Report template stays TBD until the stats exist (Phase 3)
+- **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
+- **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
 
 ## Resume protocol
 1. Read STATUS above, then the phase you're in.
@@ -36,23 +37,24 @@ docs/plans/     this file
 ---
 
 ## Phase 0 — Setup (Mon)
-- [ ] Add data ignores to `.gitignore` (`data/raw/`, `*.clue.csv`); confirm `.env` is ignored
-- [ ] Create folder skeleton above
-- [ ] `.env.example`: `OPENAI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `API_BASE_URL`, `APP_PASSWORD`
-- [ ] venv + `requirements.txt` (fastapi, uvicorn, pandas, pydantic, gspread/google-api-python-client, langgraph, langchain-openai, supabase, streamlit, resend, pytest, python-dotenv)
-- **Exit:** `python -c "import langgraph, fastapi, streamlit"` succeeds
+- [x] Add data ignores to `.gitignore` (`data/raw/`, `*.clue.csv`); confirm `.env` is ignored
+- [x] Create folder skeleton above
+- [x] `.env.example`: `OPENAI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_ID`, `SUPABASE_PROJECT_URL`, `SUPABASE_DB_PASSWORD`, `SUPABASE_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `API_BASE_URL`, `APP_PASSWORD`
+- [x] conda env `ironhack` + `requirements.txt` (fastapi, uvicorn, pandas, pydantic, gspread/google-api-python-client, langgraph, langchain-openai, supabase, streamlit, resend, pytest, python-dotenv)
+- **Exit (met):** `python -c "import langgraph, fastapi, streamlit"` succeeds
 
 ## Phase 1 — Scope & stack (Mon)
-- [ ] `stack_decision.md`: LangGraph primary (agent + RAG + validation loop + tool calls fit a graph; n8n secondary for simple triggers/glue), 3–5 sentences
-- [ ] Choose Kaggle dataset (check licence + columns); note it in STATUS
-- [ ] Report template draft (adapt to columns available)
-- [ ] Workflow sketch ≤10 boxes (in README)
+- [x] `stack_decision.md` (repo root): LangGraph primary (agent + RAG + validation loop + tool calls fit a graph; n8n secondary for simple triggers/glue), 3–5 sentences
+- [x] Choose Kaggle dataset (check licence + columns); note it in STATUS. Done: primary `menstrual-health-dataset` (puspitachowdhury2), secondary `menstrual-cycle-data-with-factors-dataset` (akshayas02); see `docs/kaggle_datasets.md`
+- [ ] Report template draft (adapt to columns available). **Deferred** to after Phase 3, when real stats exist; draft sections are in `docs/PROJECT_DRAFT.md` §7
+- [x] Workflow sketch ≤10 boxes (in README)
 - [ ] `docs/plans/gtm_future_sprints.md` exists; sprint titles final. Rubric wants it at repo root, so copy/move there by Phase 10
-- **Exit:** `stack_decision.md` exists; GTM file exists (root by Phase 10)
+- **Exit:** `stack_decision.md` exists; GTM file exists (root by Phase 10). **Met.**
 
 ## Phase 2 — Data & APIs (Mon–Tue)
 - [ ] Google Cloud project, enable Sheets API, service account, share Sheet with its email
 - [ ] Inspect Clue export; write `scripts/normalise.py` → schema `user_id, cycle_start, cycle_length, period_length, age?` (+ any flow-intensity column)
+- [ ] `scripts/synth_perimenopause.py`: generate a labelled-synthetic demo user with a known perimenopause pattern (rising cycle variability, gradual lengthening, one skipped cycle). Seeded, so reproducible. Neither Kaggle set contains a trend (see `docs/kaggle_datasets.md`); this makes the Pattern/Flags sections fire and gives Check a known truth
 - [ ] Load Kaggle + synthetic into a **demo** Sheet; Clue into a separate **private** Sheet
 - [ ] Test each key alone: OpenAI, Sheets read, Supabase (connect + pgvector enabled), Resend (script per key under `scripts/`)
 - **Exit:** ≥3 APIs tested (rubric), keys in `.env` only

@@ -1,0 +1,18 @@
+fastapi
+uvicorn
+pandas
+pydantic
+gspread
+google-auth
+langgraph
+langchain-openai
+openai
+supabase
+streamlit
+resend
+pytest
+python-dotenv
+httpx
+matplotlib
+# stretch (Phase 11)
+scikit-learn
