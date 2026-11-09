@@ -1,10 +1,32 @@
-# proj-menopause-insights
+# Menohelp (Project Menopause Insights)
 
 An autonomous LangGraph agent that analyses menstrual cycle data for
 perimenopause-related patterns and writes a custom, grounded report. Not medical advice.
 
 > **Status:** in development (Week 6, Ironhack AI Bootcamp). See
 > [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) for progress.
+
+## What problem are we solving?
+Perimenopause can start years before periods stop, and one of its earliest signs is
+changing cycle patterns: longer or shorter cycles, growing variability, skipped periods.
+Cycle apps log this data but rarely turn it into a clear picture, and the changes are
+easy to miss or dismiss. People often arrive at a doctor's appointment with no
+organised evidence.
+
+## Who is it for?
+People who track their cycle (for example in Clue) and want to understand whether their
+pattern is shifting, typically in their late 30s to 50s. Secondary users: anyone
+preparing for a conversation with a doctor.
+
+## What it does
+- Reads cycle data and computes stats (mean, variability, trend, long or skipped cycles)
+- Looks for patterns that are commonly associated with perimenopause
+- Writes a plain-language report grounded in reference documents (RAG)
+- Checks that every number in the report matches the computed stats
+- Shows the report in a web UI and can email it
+
+It is not a diagnostic tool. Every report carries a "not medical advice" note and
+suggests topics to discuss with a doctor.
 
 ## Architecture
 
