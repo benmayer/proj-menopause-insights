@@ -13,7 +13,7 @@ Not a diagnostic tool. Reports must carry a "not medical advice" note.
 ```
 Google Sheet ──(Sheets API)──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent ──▶ Report
                                                                    │
-                                                     RAG (vector DB): reference docs
+                                                     RAG (Supabase pgvector): reference docs
                                                      + report instructions/templates
 ```
 
@@ -34,7 +34,7 @@ the LLM only interprets and writes.
 | Analysis | pandas | Cycle length, variability, trend, gaps |
 | Agent | LangGraph | Orchestrates the steps below |
 | LLM | OpenAI (model TBC) | Writes the report |
-| RAG | Vector DB (Pinecone, TBC) | Reference knowledge + report instructions |
+| RAG | Supabase Postgres + pgvector | Reference knowledge + report instructions |
 | UI | Streamlit (TBC) | Pick data source, generate report, view, email |
 | Email | Resend API (TBC) | Send report to a user-entered address |
 | Hosting | Render (FastAPI) + Streamlit Community Cloud (UI) (TBC) | Public URL |

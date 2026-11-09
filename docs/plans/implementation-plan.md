@@ -1,12 +1,12 @@
 # Implementation Plan: Menopause Analysis
 
-Design reference: `../../PROJECT_DRAFT.md`. Rubric: see bottom.
+Design reference: `../PROJECT_DRAFT.md`. Rubric: see bottom.
 Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
 - **Current phase:** 0 (not started)
-- **Last completed:** repo created, drafts written (`PROJECT_DRAFT.md`, `GTM_SPRINT_REPORT.md`), CLAUDE.md + README + this plan
+- **Last completed:** repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
 - **Next action:** Phase 0 — folder skeleton, `.env.example`, venv, `requirements.txt`
 - **Blockers / decisions pending:** Kaggle dataset, OpenAI model, Clue export format (see Open questions)
 
@@ -21,7 +21,9 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 app/api/        FastAPI (main.py, models.py, sheets.py)
 app/analysis/   pandas stats (stats.py)
 app/agent/      LangGraph (state.py, nodes.py, graph.py)
-app/rag/        ingest.py, retrieve.py
+app/rag/        ingest.py, retrieve.py (Supabase pgvector)
+app/ingest/     STRETCH: apple_health.py, fitbit.py
+app/ml/         STRETCH: train.py, predict.py, models/ (gitignored artifacts)
 app/email.py    Resend sender
 ui/app.py       Streamlit
 rag_docs/       markdown docs to embed
@@ -36,8 +38,8 @@ docs/plans/     this file
 ## Phase 0 — Setup (Mon)
 - [ ] Add data ignores to `.gitignore` (`data/raw/`, `*.clue.csv`); confirm `.env` is ignored
 - [ ] Create folder skeleton above
-- [ ] `.env.example`: `OPENAI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_ID`, `PINECONE_API_KEY`, `PINECONE_INDEX`, `RESEND_API_KEY`, `EMAIL_FROM`, `API_BASE_URL`, `APP_PASSWORD`
-- [ ] venv + `requirements.txt` (fastapi, uvicorn, pandas, pydantic, gspread/google-api-python-client, langgraph, langchain-openai, pinecone, streamlit, resend, pytest, python-dotenv)
+- [ ] `.env.example`: `OPENAI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `API_BASE_URL`, `APP_PASSWORD`
+- [ ] venv + `requirements.txt` (fastapi, uvicorn, pandas, pydantic, gspread/google-api-python-client, langgraph, langchain-openai, supabase, streamlit, resend, pytest, python-dotenv)
 - **Exit:** `python -c "import langgraph, fastapi, streamlit"` succeeds
 
 ## Phase 1 — Scope & stack (Mon)
@@ -45,14 +47,14 @@ docs/plans/     this file
 - [ ] Choose Kaggle dataset (check licence + columns); note it in STATUS
 - [ ] Report template draft (adapt to columns available)
 - [ ] Workflow sketch ≤10 boxes (in README)
-- [ ] Rename `GTM_SPRINT_REPORT.md` → `gtm_future_sprints.md` (required name, repo root); sprint titles final
-- **Exit:** `stack_decision.md`, `gtm_future_sprints.md` exist at root
+- [ ] `docs/plans/gtm_future_sprints.md` exists; sprint titles final. Rubric wants it at repo root, so copy/move there by Phase 10
+- **Exit:** `stack_decision.md` exists; GTM file exists (root by Phase 10)
 
 ## Phase 2 — Data & APIs (Mon–Tue)
 - [ ] Google Cloud project, enable Sheets API, service account, share Sheet with its email
 - [ ] Inspect Clue export; write `scripts/normalise.py` → schema `user_id, cycle_start, cycle_length, period_length, age?` (+ any flow-intensity column)
 - [ ] Load Kaggle + synthetic into a **demo** Sheet; Clue into a separate **private** Sheet
-- [ ] Test each key alone: OpenAI, Sheets read, Pinecone, Resend (script per key under `scripts/`)
+- [ ] Test each key alone: OpenAI, Sheets read, Supabase (connect + pgvector enabled), Resend (script per key under `scripts/`)
 - **Exit:** ≥3 APIs tested (rubric), keys in `.env` only
 
 ## Phase 3 — FastAPI + stats (Tue)
@@ -61,11 +63,14 @@ docs/plans/     this file
 - [ ] `app/api`: `GET /health`, `/cycles?user_id=`, `/stats?user_id=`; Pydantic response models; in-memory cache of Sheet reads
 - **Exit:** tests pass; `uvicorn app.api.main:app` serves `/docs`
 
-## Phase 4 — RAG grounding (Tue)
+## Phase 4 — RAG grounding with Supabase (Tue)
+- [ ] Supabase project; enable `vector` extension; table `documents(id, section, content, source, embedding vector(1536))`; SQL match function (cosine, top-k, filter by section)
 - [ ] Write `rag_docs/`: reference ranges (cited, check sources), one instruction doc per report section, tone/disclaimer rules
-- [ ] `ingest.py` chunk + embed + upsert; `retrieve.py` top-k by section
+- [ ] `ingest.py` chunk + embed (OpenAI embeddings) + insert; `retrieve.py` calls the match function
+- [ ] RLS on; service key used server-side only, never in the UI
 - [ ] Retrieval test: 3 queries return the expected doc
 - **Exit:** retrieval works standalone
+- Verify current Supabase vector API with Context7 before coding
 
 ## Phase 5 — Graph skeleton (Tue)
 - [ ] State schema; nodes Fetch → Analyse → Retrieve → Write → Check (stubs)
@@ -81,7 +86,7 @@ docs/plans/     this file
 - **Exit:** **first full report** saved (ugly is fine)
 
 ## Phase 7 — Harden (Thu)
-- [ ] Retries/backoff on Sheets, OpenAI, Pinecone; clear errors for missing data
+- [ ] Retries/backoff on Sheets, OpenAI, Supabase; clear errors for missing data
 - [ ] Cleaner report structure + disclaimer on every report
 - [ ] 2nd sample report from a different user/source
 - **Exit:** 2 reports in `samples/`
@@ -106,6 +111,26 @@ docs/plans/     this file
 
 ---
 
+## Phase 11 — STRETCH: own prediction model (only if core is done)
+Gate: Phase 6 finished by Wed and Kaggle data has enough users/cycles per user. Never delay Phases 7–10 for this.
+- [ ] Pick one narrow target, e.g. next cycle length, or "irregular next cycle" (binary)
+- [ ] Features: last N cycle lengths, rolling mean/SD, age if available. Split by **user**, not by row, to avoid leakage
+- [ ] Baseline first (mean of last 3 cycles), then scikit-learn model (e.g. gradient boosting); compare on held-out users
+- [ ] Save model artifact (gitignored or small file); `app/ml/predict.py`; FastAPI `/predict`
+- [ ] Add a Predict tool/node to the graph; report shows prediction with uncertainty and "estimate, not medical advice"
+- [ ] Report the honest result: if it doesn't beat the baseline, say so (still a valid finding)
+- **Exit:** metric vs baseline documented in README
+
+## Phase 12 — STRETCH: wearable data (Apple Health, Fitbit)
+Gate: core done (Phase 10). Local only; never in the public demo (health data).
+- [ ] **Verify current API status first** (Context7/vendor docs): Fitbit Web API endpoints and auth; Google Fit REST is being retired in favour of Health Connect. Pick what still works
+- [ ] Apple Health: Streamlit upload of the export ZIP, parse `export.xml` (cycle, sleep, heart rate, temperature if present) in `app/ingest/apple_health.py`
+- [ ] Fitbit: OAuth2 flow + fetch sleep/heart rate (and cycle data if exposed) in `app/ingest/fitbit.py`
+- [ ] Normalise into the existing schema + daily signals table; expose via FastAPI (`/signals`)
+- [ ] Analyse: simple correlation between cycle variability and sleep/HR trends; mention as exploratory, not causal
+- [ ] Document consent and data-handling in README
+- **Exit:** one wearable source flows through to the report
+
 ## Rubric checklist
 - [ ] Working MVP: trigger → tools → structured report (LangGraph, runnable, entrypoint in README)
 - [ ] `stack_decision.md`
@@ -115,10 +140,11 @@ docs/plans/     this file
 - [ ] Demo 5–7 min, link in README
 
 ## Risks
-See `PROJECT_DRAFT.md` §9. Top two: Clue data leaking (gitignore + demo-only deployment), LLM numbers drifting (Check node).
+See `docs/PROJECT_DRAFT.md` §9. Top two: Clue data leaking (gitignore + demo-only deployment), LLM numbers drifting (Check node).
 
 ## Open questions
 - OpenAI model + budget
 - Kaggle dataset (needs per-user cycle lengths)
 - Clue export columns (is period intensity available?)
 - Resend sender verification (may limit sends to own address)
+- Stretch: does the Kaggle dataset have enough users/cycles for a meaningful model?
