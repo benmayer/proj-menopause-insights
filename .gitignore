@@ -230,3 +230,6 @@ __marimo__/
 data/raw/
 data/clue/
 .DS_Store
+
+# Licensed source PDFs for RAG (not redistributed)
+rag_pdfs/

@@ -99,6 +99,7 @@ Run commands will be added as each phase is built.
 - `docs/plans/gtm_future_sprints.md`: go-to-market sprints
 - `stack_decision.md`: why LangGraph (n8n secondary)
 - `docs/kaggle_datasets.md`: dataset evaluation and findings
+- `docs/rag_design.md`: chunking, embeddings, retrieval settings and the PDF plan
 - `samples/`: _to be added_
 - Demo recording: _to be added_
 

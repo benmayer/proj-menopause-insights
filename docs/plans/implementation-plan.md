@@ -5,9 +5,9 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
-- **Current phase:** 4 (Phases 0-3 done; report template deferred, now unblocked since stats exist). **Today (Tue 10 Nov):** Phases 4, 5 (goal: RAG retrieval working, each tool tested alone, empty graph skeleton)
-- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
-- **Next action:** Phase 4 — enable pgvector in Supabase, create `documents` table + match function, write `rag_docs/` (verify reference ranges and cite sources), ingest + retrieve, 3-query retrieval test. Then Phase 5 graph skeleton. Draft report template once RAG docs exist
+- **Current phase:** 5 (Phases 0-4 done; report template deferred, now unblocked). **Today (Tue 10 Nov):** Phase 5 (empty graph skeleton), then start Phase 6 if time
+- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 4 (pgvector + `documents` table + RLS, 8 rag_docs, ingest/retrieve, 5 live tests); Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
+- **Next action:** Phase 5 — `app/agent/state.py`, `nodes.py`, `graph.py`: Fetch → Analyse → Retrieve → Write → Check as stubs, each node tested alone, graph runs end to end (check LangGraph docs via Context7 first). Then Phase 6 (real Write/Check, CLI, first report)
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
 - **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
@@ -68,12 +68,13 @@ docs/plans/     this file
 - **Exit (met):** tests pass; `uvicorn app.api.main:app` serves `/docs`; real Clue file uploads and returns stats. Extras: `/users`, `/demos` (bundled `demo_*.csv` preloaded)
 
 ## Phase 4 — RAG grounding with Supabase (Tue)
-- [ ] Supabase project; enable `vector` extension; table `documents(id, section, content, source, embedding vector(1536))`; SQL match function (cosine, top-k, filter by section)
-- [ ] Write `rag_docs/`: reference ranges (cited, check sources), one instruction doc per report section, tone/disclaimer rules
-- [ ] `ingest.py` chunk + embed (OpenAI embeddings) + insert; `retrieve.py` calls the match function
-- [ ] RLS on; service key used server-side only, never in the UI
-- [ ] Retrieval test: 3 queries return the expected doc
-- **Exit:** retrieval works standalone
+- [x] Supabase project; enable `vector` extension; table `documents(id, section, content, source, embedding vector(1536))`; SQL match function (cosine, top-k, filter by section)
+- [x] Write `rag_docs/` (8 files, 13 chunks; reference ranges from NHS + STRAW+10; **re-check wording against the sources before the demo**; "before 45" came from an NHS Scotland guideline, not the main NHS page): reference ranges (cited, check sources), one instruction doc per report section, tone/disclaimer rules
+- [x] `ingest.py` chunk + embed (OpenAI embeddings) + insert; `retrieve.py` calls the match function
+- [x] RLS on; service key used server-side only, never in the UI
+- [x] Retrieval test: 4 queries return the expected doc + section filter (`tests/test_rag.py`, live, needs keys)
+- [ ] **4b PDF pipeline** (after the skeleton; see `docs/rag_design.md`): coaching-material PDFs → extract/clean/chunk (≈400 tok, 10-15% overlap) → `knowledge` section with title+page metadata; add `metadata jsonb`; `.gitignore` `rag_pdfs/`; confirm licence/reuse first
+- **Exit (met):** retrieval works standalone. Schema in `sql/001_documents.sql`, applied by `scripts/setup_supabase.py`; ingest with `python -m app.rag.ingest`
 - Verify current Supabase vector API with Context7 before coding
 
 ## Phase 5 — Graph skeleton (Tue)
