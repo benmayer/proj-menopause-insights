@@ -48,5 +48,6 @@ Notes: participants export their own data and consent in writing; nothing is sto
 
 ## Cross-sprint requirements
 - **Compliance:** health data is sensitive (GDPR special category in the EU). Before Sprint 1 involves anyone else's data: consent form, data-deletion promise, no logging of raw data.
+- **Storage:** the MVP keeps uploads in memory only (`app/api/store.py`). Before Sprint 1 users rely on it: swap in Supabase persistence with accounts, per-user access (RLS), explicit consent, retention limits and delete-on-request.
 - **Positioning:** wellness insight, not diagnosis. Disclaimer on every report.
 - **Key assumption to test first:** people actually want this, rather than just tracking in their app.

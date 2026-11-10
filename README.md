@@ -28,10 +28,16 @@ preparing for a conversation with a doctor.
 It is not a diagnostic tool. Every report carries a "not medical advice" note and
 suggests topics to discuss with a doctor.
 
+## Upload format
+Any CSV with a cycle start date works; headers are matched loosely (case, spaces, underscores ignored).
+- **Required:** start date (`cycle_start`, `start_date`, `date`, `period_start`)
+- **Optional:** `user_id` (missing = one person), `cycle_length` (missing = derived from gaps between start dates), `period_length`, `flow`, `age`
+- Demo files are in `samples/` (Kaggle sets, credit below, plus a labelled-synthetic perimenopause user). Regenerate with `scripts/build_demo_data.py` and `scripts/synth_perimenopause.py`.
+
 ## Architecture
 
 ```
-Google Sheet ──(Sheets API)──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent ──▶ Report
+CSV upload ──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent ──▶ Report
                                                                    │
                                                     RAG (Supabase pgvector): reference docs
                                                     + report instructions
@@ -48,7 +54,7 @@ interprets and writes.
 
 ```
  1 Trigger         user picks a data source/user in Streamlit (or CLI) and clicks Generate
- 2 Fetch           agent calls FastAPI /cycles and /stats (Sheet read, cached)
+ 2 Fetch           agent calls FastAPI /cycles and /stats (uploaded CSV, held in memory)
  3 Analyse         pandas stats: mean/SD, rolling variability, trend slope, long/skipped cycles
  4 Retrieve        RAG query to Supabase pgvector: reference ranges + section instructions
  5 Write           OpenAI drafts report sections from stats + retrieved text only
@@ -64,17 +70,17 @@ interprets and writes.
 |---|---|
 | Agent | LangGraph + OpenAI |
 | Data API | FastAPI + pandas |
-| Data source | Google Sheets API (Clue export + Kaggle) |
+| Data source | CSV upload (Clue export or Kaggle/synthetic), normalised in FastAPI |
 | Grounding | RAG, Supabase (pgvector) |
 | UI | Streamlit |
 | Email | Resend |
 | Stretch | scikit-learn prediction model trained on Kaggle data |
 
 ## APIs / tools
-Google Sheets API · OpenAI API · Supabase · Resend (details and test scripts to be added).
+OpenAI API · Supabase · Resend (details and test scripts to be added).
 
 ## Environment variables
-See [`.env.example`](.env.example) for the full list (OpenAI, Supabase, Google Sheets, Resend, app settings). Copy to `.env` and fill in. Never commit `.env`.
+See [`.env.example`](.env.example) for the full list (OpenAI, Supabase, Resend, app settings). Copy to `.env` and fill in. Never commit `.env`.
 
 ## Setup / run
 Uses a conda env (Python 3.12), not a venv:
@@ -94,3 +100,6 @@ Run commands will be added as each phase is built.
 - `docs/kaggle_datasets.md`: dataset evaluation and findings
 - `samples/`: _to be added_
 - Demo recording: _to be added_
+
+## Data credits
+Demo data is synthetic. Sources (via Kaggle): `puspitachowdhury2/menstrual-health-dataset` (CC BY-NC 4.0, non-commercial) and `akshayas02/menstrual-cycle-data-with-factors-dataset` (CC0). Files in `samples/` are normalised derivatives of these, plus a generated perimenopause example.

@@ -11,7 +11,7 @@ Not a diagnostic tool. Reports must carry a "not medical advice" note.
 ## 2. Architecture
 
 ```
-Google Sheet ──(Sheets API)──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent ──▶ Report
+CSV upload ──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent ──▶ Report
                                                                    │
                                                      RAG (Supabase pgvector): reference docs
                                                      + report instructions/templates
@@ -28,8 +28,7 @@ the LLM only interprets and writes.
 
 | Layer | Tech | Job |
 |---|---|---|
-| Data source | Google Sheet | Holds Clue export + Kaggle data |
-| Data API (consumed) | Google Sheets API (service account) | Live read access |
+| Data source | CSV upload (Streamlit) | Clue export or Kaggle/synthetic file; held in memory |
 | Data API (designed) | FastAPI + Pydantic | `/cycles`, `/stats`, `/health` |
 | Analysis | pandas | Cycle length, variability, trend, gaps |
 | Agent | LangGraph | Orchestrates the steps below |
@@ -69,7 +68,7 @@ the LLM only interprets and writes.
 5. Flags worth discussing with a doctor
 
 ## 8. Build order
-. Sheet + Sheets API access (service account)
+1. CSV upload + normalisation
 2. FastAPI wrapper, tested locally
 3. LangGraph: Fetch → Analyse → Write
 4. Add RAG, then Check loop
@@ -83,7 +82,7 @@ the LLM only interprets and writes.
 | LLM hallucinated numbers | Check node; LLM never does arithmetic |
 | Sounds like medical advice | Fixed disclaimer; wording rules in RAG |
 | Small personal sample | Use Kaggle for volume; state the limits in the report |
-| Sheets API quotas | Cache in FastAPI |
+| Uploaded data persists or leaks | In-memory only in MVP; persistence + consent is a GTM sprint |
 | Public URL exposes health data / email abuse | Demo uses Kaggle/synthetic data only; password gate on the UI; rate-limit sends; no report storage |
 | Secrets (OpenAI, Google, Resend keys) | Env vars on the host, never in repo |
 
