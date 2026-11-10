@@ -35,6 +35,18 @@ Accepts **CSV or JSON**. Any file with a cycle start date works; headers are mat
 - **Clue export:** upload `measurements.json` as is. Bleeding days are grouped into cycles (a gap of more than 7 days starts a new cycle); cycle length, period length and flow are derived. Age isn't in the export.
 - Demo files are in `samples/` (Kaggle sets, credit below, plus a labelled-synthetic perimenopause user). Regenerate with `scripts/build_demo_data.py` and `scripts/synth_perimenopause.py`.
 
+## Status (10 Nov 2026)
+| Part | State |
+|---|---|
+| Data in | CSV or JSON upload (incl. Clue `measurements.json`), normalised to one schema. Done, tested |
+| Stats | `app/analysis/stats.py`: length, trend, recent-vs-baseline, flag counts. Done, hand-computed tests |
+| Data API | FastAPI `/health /upload /users /cycles /stats /demos`, in-memory store. Done |
+| RAG | Supabase pgvector, 9 docs / 14 chunks, retrieval tested live. Done. PDF pipeline planned |
+| Agent | LangGraph skeleton (5 stub nodes, Check→Write retry loop, tested). Real nodes next |
+| Not yet | Real Write/Check, report template, Streamlit UI, email, deploy, slides |
+
+Run the tests: `pytest` (22 tests; the RAG ones need `.env` keys).
+
 ## Architecture
 
 ```
@@ -99,6 +111,7 @@ Run commands will be added as each phase is built.
 - `docs/plans/gtm_future_sprints.md`: go-to-market sprints
 - `stack_decision.md`: why LangGraph (n8n secondary)
 - `docs/kaggle_datasets.md`: dataset evaluation and findings
+- `docs/graph.mmd`: LangGraph diagram (Mermaid, generated)
 - `docs/rag_design.md`: chunking, embeddings, retrieval settings and the PDF plan
 - `samples/`: _to be added_
 - Demo recording: _to be added_

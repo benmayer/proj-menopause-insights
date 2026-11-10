@@ -5,9 +5,9 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
-- **Current phase:** 5 (Phases 0-4 done; report template deferred, now unblocked). **Today (Tue 10 Nov):** Phase 5 (empty graph skeleton), then start Phase 6 if time
-- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 4 (pgvector + `documents` table + RLS, 8 rag_docs, ingest/retrieve, 5 live tests); Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
-- **Next action:** Phase 5 — `app/agent/state.py`, `nodes.py`, `graph.py`: Fetch → Analyse → Retrieve → Write → Check as stubs, each node tested alone, graph runs end to end (check LangGraph docs via Context7 first). Then Phase 6 (real Write/Check, CLI, first report)
+- **Current phase:** 6 (Phases 0-5 done; report template deferred, now unblocked). Today's goal (RAG, tools tested alone, skeleton) is met; Phase 6 next
+- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 5 (LangGraph skeleton: state, 5 stub nodes, router, graph, 4 tests); Phase 4 (pgvector + `documents` table + RLS, 8 rag_docs, ingest/retrieve, 5 live tests); Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
+- **Next action:** Phase 6 — real nodes: Fetch (HTTP to FastAPI), Analyse (flag rules), Retrieve (per section), Write (OpenAI; decide model), Check (number extraction vs stats, retry loop already wired); CLI `python -m app.agent.run`; first report in `samples/`. Also draft the report template. 4b PDF pipeline after that
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
 - **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
@@ -78,9 +78,9 @@ docs/plans/     this file
 - Verify current Supabase vector API with Context7 before coding
 
 ## Phase 5 — Graph skeleton (Tue)
-- [ ] State schema; nodes Fetch → Analyse → Retrieve → Write → Check (stubs)
-- [ ] Each tool/node callable and tested alone
-- **Exit:** graph runs end-to-end with stubs
+- [x] State schema; nodes Fetch → Analyse → Retrieve → Write → Check (stubs)
+- [x] Each tool/node callable and tested alone (`tests/test_graph.py`; API, stats, normaliser and RAG have their own tests)
+- **Exit (met):** graph runs end-to-end with stubs; the Check→Write retry loop (max 2) is tested. Diagram: `docs/graph.mmd`
 - Use Context7 for current LangGraph API before coding
 
 ## Phase 6 — Autonomous core (Wed)
