@@ -90,6 +90,14 @@ docs/plans/     this file
 - [ ] CLI: `python -m app.agent.run --user <id> --out samples/report_1.md`
 - **Exit:** **first full report** saved (ugly is fine)
 
+## Phase 6b — Review & extend (after first report)
+Proposal in `docs/agent_extensions.md`: case triage node, red-flag check, guardrail node, symptom tool, case-tagged retrieval. Generate 5 persona reports first, read them, then build only what the results justify. Time-box; Phases 7-10 take priority.
+- [ ] **Events**: `stats.py` returns a dated `events` list (skipped/long/short cycle, jump, longest) with `first_time`; add to `/stats`; hand-computed tests. Check node verifies dates too
+- [ ] **Symptom tool**: normaliser keeps Clue symptom entries (separate long table); `/symptoms` endpoint: frequency per symptom, per month, trend; used by Retrieve/advice
+- [ ] **Age**: optional age field in the UI, passed to the graph when the file has none
+- [ ] Generate persona reports; review with Ben
+- [ ] Decide which extensions to build; log the rest as roadmap in GTM file
+
 ## Phase 7 — Harden (Thu)
 - [ ] Retries/backoff on OpenAI, Supabase; validate uploads (columns, size, dates); clear errors for missing data
 - [ ] Cleaner report structure + disclaimer on every report
@@ -97,7 +105,7 @@ docs/plans/     this file
 - **Exit:** 2 reports in `samples/`
 
 ## Phase 8 — UI & email (Thu)
-- [ ] Streamlit: password gate, CSV upload (or pick a bundled demo file), Generate, render report + chart, email field + Send
+- [ ] Streamlit: password gate, CSV upload (or pick a bundled demo file), Generate, render report + charts (matplotlib: cycle length with 21-35 band and labelled events; rolling variability; later symptoms), email field + Send (chart embedded as image)
 - [ ] `app/email.py` via Resend; rate-limit (e.g. 3 sends/session); no report storage
 - **Exit:** full flow works locally with demo data
 

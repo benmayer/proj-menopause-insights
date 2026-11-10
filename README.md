@@ -111,6 +111,7 @@ Run commands will be added as each phase is built.
 - `docs/plans/gtm_future_sprints.md`: go-to-market sprints
 - `stack_decision.md`: why LangGraph (n8n secondary)
 - `docs/kaggle_datasets.md`: dataset evaluation and findings
+- `docs/agent_extensions.md`: proposed extensions (case triage, events, charts, symptom tool, guardrail) and target graph
 - `docs/graph.mmd`: LangGraph diagram (Mermaid, generated)
 - `docs/rag_design.md`: chunking, embeddings, retrieval settings and the PDF plan
 - `samples/`: _to be added_
