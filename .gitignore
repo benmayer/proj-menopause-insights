@@ -228,4 +228,5 @@ __marimo__/
 
 # Project: private health data
 data/raw/
-*.clue.csv
+data/clue/
+.DS_Store

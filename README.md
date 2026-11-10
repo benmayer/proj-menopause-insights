@@ -29,9 +29,10 @@ It is not a diagnostic tool. Every report carries a "not medical advice" note an
 suggests topics to discuss with a doctor.
 
 ## Upload format
-Any CSV with a cycle start date works; headers are matched loosely (case, spaces, underscores ignored).
+Accepts **CSV or JSON**. Any file with a cycle start date works; headers are matched loosely (case, spaces, underscores ignored).
 - **Required:** start date (`cycle_start`, `start_date`, `date`, `period_start`)
 - **Optional:** `user_id` (missing = one person), `cycle_length` (missing = derived from gaps between start dates), `period_length`, `flow`, `age`
+- **Clue export:** upload `measurements.json` as is. Bleeding days are grouped into cycles (a gap of more than 7 days starts a new cycle); cycle length, period length and flow are derived. Age isn't in the export.
 - Demo files are in `samples/` (Kaggle sets, credit below, plus a labelled-synthetic perimenopause user). Regenerate with `scripts/build_demo_data.py` and `scripts/synth_perimenopause.py`.
 
 ## Architecture

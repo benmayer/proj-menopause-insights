@@ -7,7 +7,7 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 - **Current phase:** 3 (Phases 0-2 done; report template deferred, see Phase 1). **Today (Tue 10 Nov):** Phases 3, 4, 5 (goal: RAG retrieval working, each tool tested alone, empty graph skeleton)
 - **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
-- **Next action:** Phase 3 — `app/analysis/stats.py` + pytest, then `app/api` (`store.py`, `/health`, `/upload`, `/cycles`, `/stats`). Then Phase 4 (enable pgvector, RAG docs), Phase 5 (graph skeleton). Report template stays TBD until stats exist
+- **Next action:** Phase 3 — (`/upload` must accept CSV and JSON via `load_upload`) `app/analysis/stats.py` + pytest, then `app/api` (`store.py`, `/health`, `/upload`, `/cycles`, `/stats`). Then Phase 4 (enable pgvector, RAG docs), Phase 5 (graph skeleton). Report template stays TBD until stats exist
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
 - **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
@@ -54,7 +54,7 @@ docs/plans/     this file
 
 ## Phase 2 — Data & APIs (Mon–Tue)
 - [x] ~~Google Cloud / Sheets~~ **Dropped**: data enters via CSV upload (Streamlit → FastAPI `POST /upload`, held in memory, never stored)
-- [x] Normaliser (`app/analysis/normalise.py`, used by upload + `scripts/build_demo_data.py`; Clue export format still to inspect when it arrives) → schema `user_id, cycle_start, cycle_length, period_length, age?` (+ any flow-intensity column)
+- [x] Normaliser (`app/analysis/normalise.py`, used by upload + `scripts/build_demo_data.py`; accepts CSV and JSON incl. Clue `measurements.json`; tests in `tests/test_normalise.py`) → schema `user_id, cycle_start, cycle_length, period_length, age?` (+ any flow-intensity column)
 - [x] `scripts/synth_perimenopause.py` (done: `synth_peri` + control `synth_stable`): generate a labelled-synthetic demo user with a known perimenopause pattern (rising cycle variability, gradual lengthening, one skipped cycle). Seeded, so reproducible. Neither Kaggle set contains a trend (see `docs/kaggle_datasets.md`); this makes the Pattern/Flags sections fire and gives Check a known truth
 - [x] Export normalised demo CSVs (Kaggle + synthetic) to `samples/`; Clue stays local, uploaded by hand
 - [x] Test each key alone (`scripts/test_*.py`): OpenAI OK (embeddings 1536 dims + chat), Supabase OK (secret key, direct DB connects; **pgvector not yet enabled**, do in Phase 4), Resend key valid but send-only, so real send test in Phase 8; sender domain `menohelp.app` set up by user (confirmed 10 Nov)
@@ -149,6 +149,6 @@ See `docs/PROJECT_DRAFT.md` §9. Top two: Clue data leaking (gitignore + demo-on
 ## Open questions
 - OpenAI model + budget
 - Kaggle dataset (needs per-user cycle lengths)
-- Clue export columns (is period intensity available?)
+- ~~Clue export columns~~ Resolved: `measurements.json` has daily `period` entries with flow (light/medium/heavy), 89 cycles 2019-2026; no age. Local only in `data/clue/` (gitignored)
 - Resend sender verification (may limit sends to own address)
 - Stretch: does the Kaggle dataset have enough users/cycles for a meaningful model?
