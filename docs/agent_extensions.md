@@ -71,6 +71,13 @@ Deadline is Fri 13 Nov 11:00 and Phases 7-10 (hardening, UI, deploy, demo) come 
 - Which symptoms to cover first (the Clue export has pain, sleep, energy, feelings, skin, digestion, discharge, cravings, exercise, spotting).
 
 ## Target graph if all proposals are built
+Slide-ready PNGs (regenerate with `python scripts/draw_graphs.py`):
+- Core design: `docs/img/graph_minimal.png`
+- Extended design: `docs/img/graph_full.png`
+
+![Extended graph](img/graph_full.png)
+
+Text version:
 ```
 START
   │

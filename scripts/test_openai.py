@@ -9,8 +9,8 @@ emb = client.embeddings.create(model="text-embedding-3-small", input="cycle leng
 print("embedding OK, dims =", len(emb.data[0].embedding))
 
 chat = client.chat.completions.create(
-    model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+    model=os.getenv("OPENAI_MODEL", "gpt-5.4-mini"),
     messages=[{"role": "user", "content": "Reply with the single word: ready"}],
-    max_tokens=5,
+    max_completion_tokens=20,
 )
 print("chat OK:", chat.choices[0].message.content.strip())

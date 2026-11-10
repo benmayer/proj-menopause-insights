@@ -10,7 +10,7 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 - **Next action:** Phase 6 — real nodes: Fetch (HTTP to FastAPI), Analyse (flag rules), Retrieve (per section), Write (OpenAI; decide model), Check (number extraction vs stats, retry loop already wired); CLI `python -m app.agent.run`; first report in `samples/`. Also draft the report template. 4b PDF pipeline after that
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
-- **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
+- **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), ~~OpenAI model~~ (`gpt-5.4-mini`), Clue export format (see Open questions)
 
 ## Resume protocol
 1. Read STATUS above, then the phase you're in.
@@ -156,7 +156,7 @@ Gate: core done (Phase 10). Local only; never in the public demo (health data).
 See `docs/PROJECT_DRAFT.md` §9. Top two: Clue data leaking (gitignore + demo-only deployment), LLM numbers drifting (Check node).
 
 ## Open questions
-- OpenAI model + budget
+- ~~OpenAI model~~ Decided: `gpt-5.4-mini` (env `OPENAI_MODEL`; verified working 10 Nov). Budget still open
 - Kaggle dataset (needs per-user cycle lengths)
 - ~~Clue export columns~~ Resolved: `measurements.json` has daily `period` entries with flow (light/medium/heavy), 89 cycles 2019-2026; no age. Local only in `data/clue/` (gitignored)
 - Resend sender verification (may limit sends to own address)

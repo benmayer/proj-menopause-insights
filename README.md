@@ -112,6 +112,7 @@ Run commands will be added as each phase is built.
 - `stack_decision.md`: why LangGraph (n8n secondary)
 - `docs/kaggle_datasets.md`: dataset evaluation and findings
 - `docs/agent_extensions.md`: proposed extensions (case triage, events, charts, symptom tool, guardrail) and target graph
+- `docs/img/graph_minimal.png`, `docs/img/graph_full.png`: slide-ready diagrams of the core and extended agent graph (`scripts/draw_graphs.py`)
 - `docs/graph.mmd`: LangGraph diagram (Mermaid, generated)
 - `docs/rag_design.md`: chunking, embeddings, retrieval settings and the PDF plan
 - `samples/`: _to be added_
