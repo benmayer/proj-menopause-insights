@@ -27,7 +27,7 @@ def make_user(rng, user_id, age, peri: bool) -> pd.DataFrame:
             mean, sd = 28, 1.5
         lengths.append(int(round(rng.normal(mean, sd))))
     if peri:
-        lengths[18] = int(rng.integers(58, 66))           # one skipped cycle (~2 months)
+        lengths[21] = int(rng.integers(58, 66))           # one skipped cycle (~2 months)
     starts = pd.Timestamp("2023-01-04") + pd.to_timedelta(np.cumsum([0] + lengths[:-1]), unit="D")
     flow = rng.choice(["Light", "Moderate", "Heavy"], size=N_CYCLES, p=[0.25, 0.55, 0.20])
     return pd.DataFrame({"user_id": user_id, "cycle_start": starts, "cycle_length": lengths,

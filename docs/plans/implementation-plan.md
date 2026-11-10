@@ -5,9 +5,9 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
-- **Current phase:** 3 (Phases 0-2 done; report template deferred, see Phase 1). **Today (Tue 10 Nov):** Phases 3, 4, 5 (goal: RAG retrieval working, each tool tested alone, empty graph skeleton)
-- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
-- **Next action:** Phase 3 — (`/upload` must accept CSV and JSON via `load_upload`) `app/analysis/stats.py` + pytest, then `app/api` (`store.py`, `/health`, `/upload`, `/cycles`, `/stats`). Then Phase 4 (enable pgvector, RAG docs), Phase 5 (graph skeleton). Report template stays TBD until stats exist
+- **Current phase:** 4 (Phases 0-3 done; report template deferred, now unblocked since stats exist). **Today (Tue 10 Nov):** Phases 4, 5 (goal: RAG retrieval working, each tool tested alone, empty graph skeleton)
+- **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
+- **Next action:** Phase 4 — enable pgvector in Supabase, create `documents` table + match function, write `rag_docs/` (verify reference ranges and cite sources), ingest + retrieve, 3-query retrieval test. Then Phase 5 graph skeleton. Draft report template once RAG docs exist
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
 - **Blockers / decisions pending:** ~~Kaggle dataset~~ (decided), OpenAI model, Clue export format (see Open questions)
@@ -61,11 +61,11 @@ docs/plans/     this file
 - **Exit (met):** ≥3 APIs tested (rubric), keys in `.env` only
 
 ## Phase 3 — FastAPI + stats (Tue)
-- [ ] `app/analysis/stats.py`: cycle length mean/SD, rolling variability, trend slope, skipped/long cycles, period intensity if available
-- [ ] Pytest on stats with hand-computed fixtures
-- [ ] `app/api/store.py`: dataset store behind a tiny interface (in-memory dict now; Supabase table later)
-- [ ] `app/api`: `GET /health`, `POST /upload` (CSV → normalise → in-memory, returns `dataset_id`), `/cycles?dataset_id=&user_id=`, `/stats?...`; Pydantic response models
-- **Exit:** tests pass; `uvicorn app.api.main:app` serves `/docs`
+- [x] `app/analysis/stats.py`: cycle length mean/SD, rolling variability, trend slope, skipped/long cycles, period intensity if available
+- [x] Pytest on stats with hand-computed fixtures (`tests/test_stats.py`, `tests/test_api.py`; 13 passing)
+- [x] `app/api/store.py`: dataset store behind a tiny interface (in-memory dict now; Supabase table later)
+- [x] `app/api`: `GET /health`, `POST /upload` (CSV → normalise → in-memory, returns `dataset_id`), `/cycles?dataset_id=&user_id=`, `/stats?...`; Pydantic response models
+- **Exit (met):** tests pass; `uvicorn app.api.main:app` serves `/docs`; real Clue file uploads and returns stats. Extras: `/users`, `/demos` (bundled `demo_*.csv` preloaded)
 
 ## Phase 4 — RAG grounding with Supabase (Tue)
 - [ ] Supabase project; enable `vector` extension; table `documents(id, section, content, source, embedding vector(1536))`; SQL match function (cosine, top-k, filter by section)
