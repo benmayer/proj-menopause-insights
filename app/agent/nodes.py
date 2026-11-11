@@ -87,13 +87,20 @@ def fetch(state: AgentState) -> dict:
     params = {"dataset_id": state["dataset_id"]}
     if state.get("user_id"):
         params["user_id"] = state["user_id"]
+    labs = []
     with http() as c:
         r = c.get("/stats", params=params)
-    r.raise_for_status()
+        r.raise_for_status()
+        if state.get("labs_id"):  # optional; an expired id just means no labs
+            lr = c.get(f"/labs/{state['labs_id']}")
+            if lr.status_code == 200:
+                labs = lr.json()["draws"]
     stats = r.json()
     if state.get("age") and stats.get("age") is None:  # age entered in the UI when the file has none
         stats["age"] = float(state["age"])
-    return {"stats": stats, "retries": 0, "i_retries": 0}
+    if labs and stats.get("age") is None and labs[-1].get("age_today") is not None:
+        stats["age"] = float(labs[-1]["age_today"])  # age from the lab report's date of birth
+    return {"stats": stats, "labs": labs, "retries": 0, "i_retries": 0}
 
 
 # --- Analyse -----------------------------------------------------------------

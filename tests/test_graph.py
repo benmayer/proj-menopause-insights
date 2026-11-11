@@ -1,3 +1,4 @@
+import json
 import pytest
 from fastapi.testclient import TestClient
 
@@ -237,3 +238,23 @@ def test_guard_hormone_therapy_only_when_relevant():
     assert not any("hormone therapy" in e for e in nodes.guard_report(SYM_GOOD, _sym_state(flags=True)))
     plain = SYM_GOOD.replace("Hormone therapy can be an option to discuss with a GP.", "You use hormone therapy.")
     assert not any("hormone therapy" in e for e in nodes.guard_report(plain, st))
+
+
+def test_fetch_includes_labs_and_takes_age_from_them(client, monkeypatch):
+    from app.api.store import lab_store
+    lid = lab_store.put([{"draw_date": "2025-04-03", "cycle_day": 7, "age_at_draw": 30, "age_today": 32,
+                          "results": [{"analyte": "fsh", "value": 10.3, "unit": "mIU/ml", "ref_low": 3.5,
+                                       "ref_high": 12.5, "flag": "within"}]}])
+    monkeypatch.setattr(nodes, "http", lambda: client)
+    base = {"dataset_id": "demo_synthetic_perimenopause", "user_id": "synth_peri", "labs_id": lid}
+    out = nodes.fetch(base)
+    assert out["labs"][0]["results"][0]["analyte"] == "fsh"
+    # a file without an age column (Clue-like) takes the age from the lab report's date of birth
+    days = ["2024-01-01", "2024-01-29", "2024-02-26", "2024-03-25", "2024-04-22", "2024-05-20"]
+    raw = json.dumps([{"type": "period", "id": str(i), "date": d, "value": {"option": "light"}} for i, d in enumerate(days)])
+    did = client.post("/upload", files={"file": ("m.json", raw, "application/json")}).json()["dataset_id"]
+    assert nodes.fetch({"dataset_id": did, "labs_id": lid})["stats"]["age"] == 32.0
+    assert nodes.fetch({"dataset_id": did, "labs_id": lid, "age": 41})["stats"]["age"] == 41.0  # UI age wins
+    gone = nodes.fetch({**base, "labs_id": "expired"})
+    assert gone["labs"] == []  # expired id: no labs, no crash
+    assert nodes.fetch({"dataset_id": "demo_synthetic_perimenopause", "user_id": "synth_peri"})["labs"] == []

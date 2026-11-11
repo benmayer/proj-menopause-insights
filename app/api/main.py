@@ -10,8 +10,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from app.analysis.normalise import NormaliseError, load_upload
 from app.analysis.stats import compute_stats
-from app.api.models import CycleRecord, CyclesResponse, StatsResponse, UploadResponse
-from app.api.store import DatasetNotFound, store
+from app.labs.parse import ANALYTES, LabParseError, flag, parse_pdf
+from app.api.models import CycleRecord, CyclesResponse, LabDraw, LabsResponse, StatsResponse, UploadResponse
+from app.api.store import DatasetNotFound, LabsNotFound, lab_store, store
 
 SAMPLES = Path(__file__).resolve().parent.parent.parent / "samples"
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -96,3 +97,54 @@ def cycles(dataset_id: str, user_id: str | None = None):
 def stats(dataset_id: str, user_id: str | None = None):
     user_id, sub = _user_frame(dataset_id, user_id)
     return StatsResponse(dataset_id=dataset_id, user_id=user_id, **compute_stats(sub))
+
+
+# --- lab reports --------------------------------------------------------------
+def _labs(labs_id: str) -> list[dict]:
+    try:
+        return lab_store.get(labs_id)
+    except LabsNotFound:
+        raise HTTPException(404, "Unknown or expired lab data. Upload the report again.")
+
+
+@app.post("/labs", response_model=LabsResponse)
+async def upload_labs(file: UploadFile = File(...), labs_id: str | None = None):
+    """Parse a lab-report PDF in code. Only allow-listed values are kept; name, address and DOB are dropped.
+    Pass an existing labs_id to add another draw (same draw date replaces the earlier one)."""
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File too large (max 5 MB).")
+    try:
+        draw = parse_pdf(content)
+    except LabParseError as e:
+        raise HTTPException(422, str(e))
+    draws = [d for d in (_labs(labs_id) if labs_id else []) if d["draw_date"] != draw["draw_date"]] + [draw]
+    labs_id = lab_store.put(draws, labs_id)
+    return LabsResponse(labs_id=labs_id, draws=lab_store.get(labs_id))
+
+
+@app.get("/labs/{labs_id}", response_model=LabsResponse)
+def get_labs(labs_id: str):
+    return LabsResponse(labs_id=labs_id, draws=_labs(labs_id))
+
+
+@app.put("/labs/{labs_id}", response_model=LabsResponse)
+def put_labs(labs_id: str, draws: list[LabDraw]):
+    """Replace the draws with the reader's corrected values. Flags are recomputed here from the ranges."""
+    _labs(labs_id)
+    out = []
+    for d in draws:
+        d = d.model_dump()
+        for r in d["results"]:
+            if r["analyte"] not in ANALYTES:
+                raise HTTPException(422, f"Unsupported analyte '{r['analyte']}'.")
+            r["flag"] = flag(r["value"], r["ref_low"], r["ref_high"])
+        out.append(d)
+    lab_store.put(out, labs_id)
+    return LabsResponse(labs_id=labs_id, draws=lab_store.get(labs_id))
+
+
+@app.delete("/labs/{labs_id}")
+def delete_labs(labs_id: str):
+    lab_store.delete(labs_id)
+    return {"deleted": True}

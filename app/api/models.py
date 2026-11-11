@@ -59,3 +59,25 @@ class StatsResponse(BaseModel):
     mean_period_length: float | None = None
     flow_share: dict[str, float] | None = None
     events: list[CycleEvent] = []
+
+
+class LabResult(BaseModel):
+    analyte: str
+    value: float
+    unit: str
+    ref_low: float | None = None
+    ref_high: float | None = None
+    flag: str | None = None  # recomputed by the server from the range
+
+
+class LabDraw(BaseModel):
+    draw_date: str
+    cycle_day: int | None = None
+    age_at_draw: int | None = None
+    age_today: int | None = None
+    results: list[LabResult]
+
+
+class LabsResponse(BaseModel):
+    labs_id: str
+    draws: list[LabDraw]

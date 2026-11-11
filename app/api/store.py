@@ -49,4 +49,37 @@ class MemoryStore:
             del self._data[k]
 
 
+class LabsNotFound(KeyError):
+    pass
+
+
+class LabStore:
+    """Parsed lab draws per labs_id, in memory only, same TTL as datasets. Holds values, never the PDF."""
+    def __init__(self):
+        self._data: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+    def put(self, draws: list[dict], labs_id: str | None = None) -> str:
+        self._expire()
+        labs_id = labs_id or uuid.uuid4().hex[:12]
+        self._data[labs_id] = (time.time(), sorted(draws, key=lambda d: d["draw_date"]))
+        while len(self._data) > MAX_DATASETS:
+            self._data.popitem(last=False)
+        return labs_id
+
+    def get(self, labs_id: str) -> list[dict]:
+        self._expire()
+        if labs_id not in self._data:
+            raise LabsNotFound(labs_id)
+        return self._data[labs_id][1]
+
+    def delete(self, labs_id: str) -> None:
+        self._data.pop(labs_id, None)
+
+    def _expire(self):
+        now = time.time()
+        for k in [k for k, (t, _) in self._data.items() if now - t > TTL_SECONDS]:
+            del self._data[k]
+
+
 store = MemoryStore()
+lab_store = LabStore()

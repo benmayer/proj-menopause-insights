@@ -78,6 +78,7 @@ fetch (+labs) -> analyse (+lab summary) -> triage (+lab context) -> retrieve (+l
 - E2E mock run with labs, then a real-model run for the demo persona.
 
 ## 8. Order of work
+Status: step 1 (parser) and step 2 (API `/labs` POST/GET/PUT/DELETE, `LabStore`, state `labs_id`/`labs`, Fetch, age from lab DOB) are DONE, 71 tests.
 1. Parser + fixtures + tests, run against the real PDFs locally (45 min)
 2. API + state + fetch (30 min)
 3. `summarise_labs` + alignment + triage changes + tests (45 min)
