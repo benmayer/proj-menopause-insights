@@ -1,4 +1,8 @@
-"""Ingest coaching-material PDFs (rag_docs/knowledge/*.pdf) into `documents` as section 'knowledge'.
+"""Ingest the coaching-material module PDFs (rag_docs/knowledge/modules/*.pdf) as section 'knowledge'.
+
+ONLY `modules/` is read. The other PDFs in rag_docs/knowledge/ (forms, cheat sheets, diagnosis flowchart,
+hormone-therapy tables, symptom table) are deliberately NOT ingested: forms and prescribing/diagnosis material
+must never reach retrieval. The symptom table lives in rag_docs/symptom_map.md instead.
 
 Page-aware: text is split into lines/paragraphs tagged with their page, packed into ~400-token chunks
 with ~12% overlap. Each chunk keeps doc name + page range in `metadata` so the report can cite it.
@@ -12,7 +16,7 @@ import tiktoken
 
 from app.rag.clients import embed, supabase_client
 
-PDF_DIR = Path(__file__).resolve().parent.parent.parent / "rag_docs" / "knowledge"
+PDF_DIR = Path(__file__).resolve().parent.parent.parent / "rag_docs" / "knowledge" / "modules"
 CHUNK_TOKENS, OVERLAP_TOKENS, MIN_TOKENS = 400, 50, 60
 ENC = tiktoken.get_encoding("cl100k_base")
 NOISE = re.compile(r"(©.*MenoCert.*|Nur für registrierte.*|^\s*\d{1,3}\s*$|^\s*MODUL\s*\d\s*$)", re.I)
@@ -29,7 +33,7 @@ def is_bibliography(text: str) -> bool:
 def doc_name(path: Path) -> str:
     """'3-SLK Modul 3 - Endokrinologie und Wechseljahre SKRIPT-offen' -> 'Modul 3 - Endokrinologie und Wechseljahre'."""
     n = re.sub(r"\s*SKRIPT.*$", "", path.stem)
-    return re.sub(r"^\d-", "", n).replace("SLK ", "").replace("Einfu hrung", "Einführung").replace("Horxmone", "Hormone")
+    return re.sub(r"^\d-", "", n).replace("SLK ", "").replace("Einfu hrung", "Einführung").replace("Einfuhrung", "Einführung").replace("Horxmone", "Hormone")
 
 
 def page_units(path: Path) -> list[tuple[int, str]]:

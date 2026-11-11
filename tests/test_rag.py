@@ -33,3 +33,11 @@ def test_knowledge_chunks_are_cited_and_not_bibliography():
     for h in hits:
         assert h["metadata"]["doc"] and h["metadata"]["page"] >= 1
         assert "doi.org" not in h["content"]
+
+
+def test_pdf_ingest_reads_only_module_pdfs():
+    """Forms, cheat sheets and clinical tables must never be ingested (allow-list by folder)."""
+    from app.rag.ingest_pdf import PDF_DIR
+    names = [p.name for p in PDF_DIR.glob("*.pdf")]
+    assert PDF_DIR.name == "modules" and len(names) == 5
+    assert all("Modul" in n for n in names)
