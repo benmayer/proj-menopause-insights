@@ -7,9 +7,12 @@ create table if not exists public.documents (
   title text not null,
   content text not null,
   source text,                    -- URL or citation
+  metadata jsonb not null default '{}',  -- knowledge chunks: doc, page, page_end, lang
   embedding extensions.vector(1536) not null,
   unique (section, title)
 );
+
+alter table public.documents add column if not exists metadata jsonb not null default '{}';
 
 -- RLS on with no policies: the anon/publishable key can read nothing.
 -- The server-side secret key bypasses RLS, so only our backend can query.
@@ -18,16 +21,17 @@ alter table public.documents enable row level security;
 create index if not exists documents_embedding_idx
   on public.documents using hnsw (embedding extensions.vector_cosine_ops);
 
-create or replace function public.match_documents(
+drop function if exists public.match_documents(extensions.vector, int, text);
+create function public.match_documents(
   query_embedding extensions.vector(1536),
   match_count int default 3,
   filter_section text default null
 )
-returns table (id bigint, section text, title text, content text, source text, similarity float)
+returns table (id bigint, section text, title text, content text, source text, metadata jsonb, similarity float)
 language sql stable
 set search_path = ''
 as $$
-  select d.id, d.section, d.title, d.content, d.source,
+  select d.id, d.section, d.title, d.content, d.source, d.metadata,
          1 - (d.embedding operator(extensions.<=>) query_embedding) as similarity
   from public.documents d
   where filter_section is null or d.section = filter_section

@@ -24,6 +24,13 @@ class CyclesResponse(BaseModel):
     cycles: list[CycleRecord]
 
 
+class CycleEvent(BaseModel):
+    type: str
+    date: str
+    length_days: int
+    first_time: bool
+
+
 class StatsResponse(BaseModel):
     dataset_id: str
     user_id: str
@@ -51,3 +58,4 @@ class StatsResponse(BaseModel):
     consecutive_jumps: int | None = None
     mean_period_length: float | None = None
     flow_share: dict[str, float] | None = None
+    events: list[CycleEvent] = []

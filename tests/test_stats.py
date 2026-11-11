@@ -62,3 +62,18 @@ def test_cycle_series_rolling_sd():
     s = cycle_series(frame([28, 30, 26]))
     assert list(s.columns) == ["cycle_start", "cycle_length", "rolling_sd"]
     assert s["rolling_sd"].iloc[2] == pytest.approx(2.0)  # sd of 28,30,26 = sqrt(8/2)
+
+
+def test_events_dated_and_first_time():
+    # lengths 28,28,28,35,42,64,28. 35 is not >35 but jumps by 7 -> jump.
+    # 42: long (>35), jump (7). 64: skipped, jump (22). first_time only for the first of each type.
+    s = compute_stats(frame([28, 28, 28, 35, 42, 64, 28]))
+    ev = [(e["type"], e["date"], e["length_days"], e["first_time"]) for e in s["events"]]
+    assert ev == [
+        ("jump", "2024-03-25", 35, True),   # day 84 = 2024-03-25
+        ("long", "2024-04-29", 42, True),   # day 119
+        ("jump", "2024-04-29", 42, False),
+        ("skipped", "2024-06-10", 64, True),  # day 161
+        ("jump", "2024-06-10", 64, False),
+        ("jump", "2024-08-13", 28, False),  # day 225; 64 -> 28 is a 36-day drop
+    ]

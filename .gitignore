@@ -233,3 +233,4 @@ data/clue/
 
 # Licensed source PDFs for RAG (not redistributed)
 rag_pdfs/
+rag_docs/knowledge/

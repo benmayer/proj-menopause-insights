@@ -25,6 +25,35 @@ def _sd(a):
     return float(np.std(a, ddof=1)) if len(a) >= 2 else None
 
 
+MAX_EVENTS = 15          # most recent events kept in the output
+
+
+def cycle_events(df: pd.DataFrame) -> list[dict]:
+    """Dated flagged cycles, oldest first. `date` = start of the cycle, `length_days` = its length.
+
+    type: skipped (>=60), long (>35), short (<21), jump (>=7 days different from the previous cycle).
+    first_time: no earlier cycle of the same type. A cycle can carry several events (e.g. long + jump).
+    """
+    d = df.dropna(subset=["cycle_length"]).sort_values("cycle_start")
+    seen, events, prev = set(), [], None
+    for start, length in zip(d["cycle_start"], d["cycle_length"].astype(float)):
+        types = []
+        if length >= SKIPPED_DAYS:
+            types.append("skipped")
+        elif length > LONG_DAYS:
+            types.append("long")
+        elif length < SHORT_DAYS:
+            types.append("short")
+        if prev is not None and abs(length - prev) >= JUMP_DAYS:
+            types.append("jump")
+        for t in types:
+            events.append({"type": t, "date": str(start.date()), "length_days": int(length),
+                           "first_time": t not in seen})
+            seen.add(t)
+        prev = length
+    return events[-MAX_EVENTS:]
+
+
 def cycle_series(df: pd.DataFrame) -> pd.DataFrame:
     """Cycle start, length and rolling SD (for the chart). Drops cycles without a length."""
     d = df.dropna(subset=["cycle_length"]).sort_values("cycle_start").copy()
@@ -70,6 +99,8 @@ def compute_stats(df: pd.DataFrame) -> dict:
     out |= {"short_cycles": int((L < SHORT_DAYS).sum()), "long_cycles": int((L > LONG_DAYS).sum()),
             "skipped_cycles": int((L >= SKIPPED_DAYS).sum()),
             "consecutive_jumps": int((jumps >= JUMP_DAYS).sum()) if len(jumps) else 0}
+
+    out["events"] = cycle_events(d)
 
     # Period length and flow, when present.
     pl = pd.to_numeric(d["period_length"], errors="coerce").dropna()

@@ -25,3 +25,11 @@ def test_section_filter_and_instruction_lookup():
     hits = retrieve("how to write the flags section", k=2, section="flags")
     assert hits and all(h["section"] == "flags" for h in hits)
     assert "not a diagnosis" in hits[0]["content"]
+
+
+def test_knowledge_chunks_are_cited_and_not_bibliography():
+    hits = retrieve("Zyklus unregelmäßig Perimenopause Beratung", k=3, section="knowledge")
+    assert hits and hits[0]["similarity"] > 0.5
+    for h in hits:
+        assert h["metadata"]["doc"] and h["metadata"]["page"] >= 1
+        assert "doi.org" not in h["content"]
