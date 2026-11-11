@@ -17,6 +17,8 @@ import tiktoken
 from app.rag.clients import embed, supabase_client
 
 PDF_DIR = Path(__file__).resolve().parent.parent.parent / "rag_docs" / "knowledge" / "modules"
+# Explicit allow-list of single course PDFs outside modules/ (lecture slides).
+EXTRA_PDFS = [PDF_DIR.parent / "SLK 4.1.pdf"]
 CHUNK_TOKENS, OVERLAP_TOKENS, MIN_TOKENS = 400, 50, 60
 ENC = tiktoken.get_encoding("cl100k_base")
 NOISE = re.compile(r"(©.*MenoCert.*|Nur für registrierte.*|^\s*\d{1,3}\s*$|^\s*MODUL\s*\d\s*$)", re.I)
@@ -32,6 +34,8 @@ def is_bibliography(text: str) -> bool:
 
 def doc_name(path: Path) -> str:
     """'3-SLK Modul 3 - Endokrinologie und Wechseljahre SKRIPT-offen' -> 'Modul 3 - Endokrinologie und Wechseljahre'."""
+    if path.stem == "SLK 4.1":
+        return "Modul 4 Webinar 1 - Das Wechseljahre-Einmaleins"
     n = re.sub(r"\s*SKRIPT.*$", "", path.stem)
     return re.sub(r"^\d-", "", n).replace("SLK ", "").replace("Einfu hrung", "Einführung").replace("Einfuhrung", "Einführung").replace("Horxmone", "Hormone")
 
@@ -72,9 +76,27 @@ def chunk(units: list[tuple[int, str]]) -> list[dict]:
     return chunks
 
 
+TRANSCRIPT_DIR = PDF_DIR.parent.parent / "image_transcripts"
+
+
+def transcript_rows() -> list[dict]:
+    """Chunks transcribed by hand from images/tables inside the module PDFs (text not extractable).
+    Format: header `doc: <name>`, then `## page N | Title` blocks. Cited like any other module chunk."""
+    rows = []
+    for f in sorted(TRANSCRIPT_DIR.glob("*.md")):
+        text = f.read_text(encoding="utf-8")
+        doc = re.search(r"^doc:\s*(.+)$", text, re.M).group(1).strip()
+        for m in re.finditer(r"^## page (\d+) \| (.+?)\n(.*?)(?=^## |\Z)", text, re.M | re.S):
+            page, title, body = int(m.group(1)), m.group(2).strip(), m.group(3).strip()
+            rows.append({"section": "knowledge", "title": f"{doc}, S. {page} (Bild: {title})",
+                         "content": f"{title}\n{body}", "source": f"{doc} (MenoCert coaching material)",
+                         "metadata": {"doc": doc, "page": page, "page_end": page, "lang": "de", "image": True}})
+    return rows
+
+
 def main() -> int:
     rows = []
-    for pdf in sorted(PDF_DIR.glob("*.pdf")):
+    for pdf in sorted(PDF_DIR.glob("*.pdf")) + [p for p in EXTRA_PDFS if p.exists()]:
         name = doc_name(pdf)
         all_cs = chunk(page_units(pdf))
         cs = [c for c in all_cs if not is_bibliography(c["text"])]
@@ -85,6 +107,9 @@ def main() -> int:
                          "content": c["text"], "source": f"{name} (MenoCert coaching material)",
                          "metadata": {"doc": name, "page": c["page"], "page_end": c["page_end"], "lang": "de"}})
         print(f"{name}: {len(cs)} chunks")
+    tr = transcript_rows()
+    print(f"{len(tr)} image/table transcript chunks")
+    rows += tr
     db = supabase_client()
     db.table("documents").delete().eq("section", "knowledge").execute()  # re-ingest cleanly
     for i in range(0, len(rows), 64):

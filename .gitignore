@@ -4,7 +4,6 @@ CLAUDE.md
 .claude
 .agents
 
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -229,8 +228,11 @@ __marimo__/
 # Project: private health data
 data/raw/
 data/clue/
-.DS_Store
+data/bloodtests/
 
 # Licensed source PDFs for RAG (not redistributed)
 rag_pdfs/
 rag_docs/knowledge/
+
+#Misc
+.DS_Store
