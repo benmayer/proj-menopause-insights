@@ -173,7 +173,8 @@ def test_symptom_summary_computed_in_code():
     ({"hormones": "yes"}, {}, "masked_by_hormones"),
     ({"surgery": "yes"}, {}, "surgical_or_other"),
     ({"last_period": "over_12m"}, {}, "no_period_12m"),
-    (None, {"age": 30}, "young"),
+    (None, {"age": 30}, "irregular_recent"),                                   # age is a soft signal: irregular cycles still count
+    (None, {"age": 30, "skipped_cycles": 0, "consecutive_jumps": 0, "mean_change": 1.0, "recent_mean": 29.0}, "young"),
     (None, {}, "irregular_recent"),                                            # STATS carries skipped cycle + jumps
     (None, {"skipped_cycles": 0, "consecutive_jumps": 0, "mean_change": 1.0, "recent_mean": 29.0}, "regular"),
 ])

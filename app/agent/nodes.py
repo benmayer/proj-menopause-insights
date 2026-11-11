@@ -11,6 +11,7 @@ import re
 import httpx
 
 from app.agent.state import AgentState
+from app.agent.labs import align_labs, summarise_labs
 from app.agent.symptoms import SYSTEMS, rate_systems
 
 MAX_RETRIES = 2
@@ -136,7 +137,8 @@ def analyse(state: AgentState) -> dict:
         tags.append("stable")
     return {"findings": {"flags": flags, "no_flags": not flags, "case_tags": tags,
                          "is_demo": str(state.get("dataset_id", "")).startswith("demo_"),
-                         "symptoms": summarise_symptoms(state.get("intake"))}}
+                         "symptoms": summarise_symptoms(state.get("intake")),
+                         "labs": summarise_labs(state.get("labs"))}}
 
 
 def summarise_symptoms(intake: dict | None) -> dict | None:
@@ -165,10 +167,10 @@ def triage(state: AgentState) -> dict:
         cat = "surgical_or_other"
     elif intake.get("last_period") == "over_12m":
         cat = "no_period_12m"
+    elif f["flags"] or {"variability_up", "lengthening", "skipped", "short_cycles"} & set(f["case_tags"]):
+        cat = "irregular_recent"  # age is a soft signal: under 40 does not rule this out ("young" stays a case tag)
     elif "young" in f["case_tags"]:
         cat = "young"
-    elif f["flags"] or {"variability_up", "lengthening", "skipped", "short_cycles"} & set(f["case_tags"]):
-        cat = "irregular_recent"
     else:
         cat = "regular"
     if cat in CYCLE_UNRELIABLE:  # cycle length is not a natural-cycle signal: drop cycle-pattern claims
@@ -177,6 +179,8 @@ def triage(state: AgentState) -> dict:
     sym = f.get("symptoms") or {}
     red = [k for k in sym.get("strong", []) if k in RED_FLAG_TEXT]
     f["category"], f["red_flags"] = cat, red
+    if f.get("labs"):  # lab signals depend on the category (pill or hormones make sex-hormone values uninformative)
+        f["labs"] = align_labs(f["labs"], cat, f, (state.get("stats") or {}).get("age"))
     return {"findings": f}
 
 
