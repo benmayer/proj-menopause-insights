@@ -15,8 +15,10 @@
 
 Why heading-based, no overlap: the documents are short, hand-written, and each section is one idea. Overlap only helps when a split can cut an idea in half.
 
-## Planned: large PDFs (symptoms and advice)
-Same store and embedding model; **different ingestion pipeline**.
+## Built (11 Nov): large PDFs (symptoms and advice)
+`app/rag/ingest_pdf.py` reads `rag_docs/knowledge/*.pdf` (5 MenoCert modules, German, gitignored): page-aware lines, ~400-token chunks, ~50-token overlap, footer noise and bibliography chunks dropped, `metadata jsonb` (doc, page, page_end, lang), section `knowledge`: 316 chunks. Retrieval queries are German and chosen by case tags (`TAG_QUERIES` in `app/agent/nodes.py`), min similarity 0.45, max 6 chunks, citations `[S#]` -> doc + page. Licence: Ben confirmed use in the demo; PDFs stay out of git. Known weakness: raw fragments make advice generic; planned fix = symptom cards (see `findings_and_improvements.md`).
+
+Original plan (kept for reference). Same store and embedding model; **different ingestion pipeline**.
 
 | Step | Approach |
 |---|---|

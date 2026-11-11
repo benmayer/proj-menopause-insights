@@ -35,17 +35,21 @@ Accepts **CSV or JSON**. Any file with a cycle start date works; headers are mat
 - **Clue export:** upload `measurements.json` as is. Bleeding days are grouped into cycles (a gap of more than 7 days starts a new cycle); cycle length, period length and flow are derived. Age isn't in the export.
 - Demo files are in `samples/` (Kaggle sets, credit below, plus a labelled-synthetic perimenopause user). Regenerate with `scripts/build_demo_data.py` and `scripts/synth_perimenopause.py`.
 
-## Status (10 Nov 2026)
+## Status (11 Nov 2026)
 | Part | State |
 |---|---|
 | Data in | CSV or JSON upload (incl. Clue `measurements.json`), normalised to one schema. Done, tested |
-| Stats | `app/analysis/stats.py`: length, trend, recent-vs-baseline, flag counts. Done, hand-computed tests |
+| Stats | `app/analysis/stats.py`: length, trend, recent-vs-baseline, flag counts, dated events. Done, hand-computed tests |
 | Data API | FastAPI `/health /upload /users /cycles /stats /demos`, in-memory store. Done |
-| RAG | Supabase pgvector, 9 docs / 14 chunks, retrieval tested live. Done. PDF pipeline planned |
-| Agent | LangGraph skeleton (5 stub nodes, Check→Write retry loop, tested). Real nodes next |
-| Not yet | Real Write/Check, report template, Streamlit UI, email, deploy, slides |
+| RAG | Supabase pgvector: 15 instruction/reference chunks + 316 coaching-material chunks (5 PDFs, cited by page). Done |
+| Agent | LangGraph: fetch, analyse, retrieve, write, check, interpret, guardrail. Done; reports pass checks but are generic |
+| Reports | `samples/report_*.md` (human) + `*_findings.md` (verified facts) |
+| UI | `streamlit run ui/app.py`: demo or upload, age, report, cycle chart with events, findings, email button (send not yet tested). Done |
+| Next | Symptom input + symptom cards to make reports specific ([`docs/findings_and_improvements.md`](docs/findings_and_improvements.md)), email, deploy, slides |
 
-Run the tests: `pytest` (22 tests; the RAG ones need `.env` keys).
+Run the UI: `streamlit run ui/app.py` (uses `API_BASE_URL` if a `uvicorn app.api.main:app` is running, otherwise the API in-process).
+Run the tests: `pytest` (42 tests; the RAG ones need `.env` keys).
+Generate a report: `python -m app.agent.run --dataset demo_synthetic_perimenopause --user synth_peri --out samples/report_1.md`
 
 ## Architecture
 
@@ -57,8 +61,9 @@ CSV upload ──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent �
 Streamlit UI ──▶ agent ──▶ report on screen ──▶ email (Resend)
 ```
 
-**Agent flow:** Fetch → Analyse → Retrieve → Write → Check (verifies every number
-against computed stats; loops back to Write on mismatch).
+**Agent flow:** Fetch → Analyse (flags + case tags) → Retrieve → Write findings → Check (every number/date
+verified; loops back on mismatch) → Interpret (meaning + advice from cited coaching chunks) → Guardrail
+(citations, numbers, banned wording; loops back to Interpret).
 
 **Principle:** the LLM never sees raw data. FastAPI returns computed stats; the LLM only
 interprets and writes.
