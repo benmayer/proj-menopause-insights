@@ -17,6 +17,8 @@ def main(argv=None) -> int:
     ap.add_argument("--user", default=None, help="user_id (optional if the dataset has one user)")
     ap.add_argument("--intake", default=None, help='JSON file: {"symptoms": {"sleep": 3}, "top_concern": "...", '
                     '"hormones": "yes|no", "surgery": "yes|no", "last_period": "lt_3m|3_12m|over_12m"}')
+    ap.add_argument("--lab-pdf", action="append", default=[], help="lab report PDF (repeat for several draws)")
+    ap.add_argument("--labs-json", default=None, help="in-process only: JSON list of parsed draws (same shape as GET /labs)")
     ap.add_argument("--age", type=float, default=None, help="age if the data has none")
     ap.add_argument("--out", default=None, help="write the report here (markdown)")
     ap.add_argument("--api", default=None, help="base URL of a running API (default: in-process)")
@@ -34,7 +36,18 @@ def main(argv=None) -> int:
 
     import json
     intake = json.loads(Path(a.intake).read_text()) if a.intake else None
-    out = build_graph().invoke({"dataset_id": a.dataset, "user_id": a.user, "age": a.age, "intake": intake})
+    labs_id = None
+    for pdf in a.lab_pdf:  # parsed in code by the API; only values are kept
+        with nodes.http() as c:
+            r = c.post("/labs", params={"labs_id": labs_id} if labs_id else None,
+                       files={"file": (Path(pdf).name, Path(pdf).read_bytes())})
+        r.raise_for_status()
+        labs_id = r.json()["labs_id"]
+    if a.labs_json:
+        from app.api.store import lab_store
+        labs_id = lab_store.put(json.loads(Path(a.labs_json).read_text()))
+    out = build_graph().invoke({"dataset_id": a.dataset, "user_id": a.user, "age": a.age, "intake": intake,
+                                "labs_id": labs_id})
     findings, human = out["report"], out["human_report"]
     if not out.get("passed"):
         findings = ("> **Verification failed after retries.** Unverified: " + "; ".join(out["check_errors"])

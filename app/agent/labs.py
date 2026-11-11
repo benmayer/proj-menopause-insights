@@ -16,6 +16,51 @@ LABELS = {"fsh": "FSH", "lh": "LH", "e2": "oestradiol (E2)", "progesterone": "pr
           "ferritin": "ferritin", "hb": "haemoglobin"}
 GROUP = {**{k: "sex hormones" for k in ("fsh", "lh", "e2", "progesterone", "prolactin", "testosterone", "shbg", "dheas", "fai", "androstenedione")},
          "amh": "ovarian reserve", **{k: "thyroid" for k in ("tsh", "ft3", "ft4", "tpo")}, "ferritin": "iron", "hb": "iron"}
+# lab_map card title per analyte (exact lookup), and German retrieval queries into the module chunks
+LAB_CARD = {"fsh": "FSH (follicle-stimulating hormone)", "lh": "LH (luteinising hormone)", "e2": "Estradiol (E2)",
+            "progesterone": "Progesterone", "tsh": "TSH (thyroid-stimulating hormone)",
+            "ft3": "fT3 and fT4 (free thyroid hormones)", "ft4": "fT3 and fT4 (free thyroid hormones)",
+            "shbg": "SHBG (sex hormone-binding globulin)", "testosterone": "Testosterone",
+            "dheas": "DHEA-S (dehydroepiandrosterone sulfate)", "ferritin": "Ferritin (storage iron)"}
+GENERAL_CARD = "How to read lab values"
+LAB_QUERIES = {
+    "fsh": "FSH Anstieg Perimenopause Menopause Laborwert Schwankung Interpretation",
+    "lh": "LH FSH Verhältnis Laborwerte Perimenopause",
+    "e2": "Östradiol Laborwert Perimenopause schwankend Zyklustag",
+    "amh": "AMH Anti-Müller-Hormon Eizellreserve vorzeitige Ovarialinsuffizienz frühe Menopause",
+    "tsh": "TSH Schilddrüse Ausschluss Schilddrüsenfunktionsstörung Symptome Wechseljahre",
+    "progesterone": "Progesteron Lutealphase Gelbkörperinsuffizienz Laborwert Zyklustag 21",
+    "general": "Laborwerte Blutentnahme Zyklustag Hormonwerte schwanken Aussagekraft Perimenopause",
+    "early": "vorzeitige Menopause Ovarialinsuffizienz unter 40 Jahren Abklärung Symptome",
+}
+
+
+def lab_topics(labs: dict | None, young: bool = False) -> list[str]:
+    """Which retrieval topics to run: always FSH/E2/TSH/AMH when measured, anything outside range, general reading tips."""
+    if not labs:
+        return []
+    last = labs["draws"][-1]["results"]
+    have = {r["analyte"] for r in last}
+    topics = {a for a in ("fsh", "e2", "tsh", "amh") if a in have}
+    topics |= {r["analyte"] for r in last if r["flag"] in ("below", "above") and r["analyte"] in LAB_QUERIES}
+    out = ["general"] + sorted(topics)
+    if young:
+        out.append("early")
+    return out
+
+
+def lab_card_titles(labs: dict | None) -> list[str]:
+    if not labs:
+        return []
+    have = [r["analyte"] for r in labs["draws"][-1]["results"]]
+    titles = [GENERAL_CARD]
+    for a in have:
+        t = LAB_CARD.get(a)
+        if t and t not in titles:
+            titles.append(t)
+    return titles
+
+
 EARLY_CYCLE = {"fsh", "lh", "e2", "testosterone", "shbg", "androstenedione"}
 # Values the pill, a hormonal coil or hormone therapy changes; not read as a natural signal when the reader uses them.
 HORMONE_AFFECTED = {"fsh", "lh", "e2", "progesterone", "shbg", "testosterone", "fai", "dheas"}
@@ -82,6 +127,7 @@ def summarise_labs(draws: list[dict] | None) -> dict | None:
                for r in last["results"] if r["flag"] in ("below", "above")]
     thyroid = [r["label"] for r in last["results"] if r["group"] == "thyroid" and r["flag"] in ("below", "above")]
     return {"n_draws": len(out_draws), "draws": out_draws, "latest_date": last["date"], "changes": changes,
+            "thresholds": {"fsh_late_transition": FSH_LATE_TRANSITION},
             "outside_range": outside, "thyroid_outside_range": thyroid}
 
 

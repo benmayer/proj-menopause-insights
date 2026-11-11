@@ -1,0 +1,14 @@
+[
+ {"draw_date": "2025-05-06", "cycle_day": 3, "age_at_draw": 46, "age_today": 46, "results": [
+  {"analyte": "fsh", "value": 13.8, "unit": "mIU/ml", "ref_low": 3.5, "ref_high": 12.5, "flag": "above"},
+  {"analyte": "lh", "value": 6.1, "unit": "mIU/ml", "ref_low": 2.4, "ref_high": 12.6, "flag": "within"},
+  {"analyte": "e2", "value": 38.0, "unit": "pg/ml", "ref_low": 20.0, "ref_high": 3000.0, "flag": "within"},
+  {"analyte": "amh", "value": 0.31, "unit": "ng/ml", "ref_low": 0.17, "ref_high": 7.37, "flag": "within"},
+  {"analyte": "tsh", "value": 1.9, "unit": "µIU/ml", "ref_low": 0.27, "ref_high": 4.0, "flag": "within"}]},
+ {"draw_date": "2026-03-10", "cycle_day": 3, "age_at_draw": 46, "age_today": 46, "results": [
+  {"analyte": "fsh", "value": 31.2, "unit": "mIU/ml", "ref_low": 3.5, "ref_high": 12.5, "flag": "above"},
+  {"analyte": "lh", "value": 14.9, "unit": "mIU/ml", "ref_low": 2.4, "ref_high": 12.6, "flag": "above"},
+  {"analyte": "e2", "value": 17.0, "unit": "pg/ml", "ref_low": 20.0, "ref_high": 3000.0, "flag": "below"},
+  {"analyte": "amh", "value": 0.12, "unit": "ng/ml", "ref_low": 0.17, "ref_high": 7.37, "flag": "below"},
+  {"analyte": "tsh", "value": 2.1, "unit": "µIU/ml", "ref_low": 0.27, "ref_high": 4.0, "flag": "within"}]}
+]

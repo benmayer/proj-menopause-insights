@@ -20,3 +20,13 @@ def symptom_cards(system_keys: list[str]) -> list[dict]:
            .eq("section", "symptom_map").in_("title", titles).execute())
     order = {t: i for i, t in enumerate(titles)}
     return sorted(res.data, key=lambda r: order[r["title"]])
+
+
+def lab_cards(titles: list[str]) -> list[dict]:
+    """Exact lookup of lab_map cards by title (no embedding), in the order given."""
+    if not titles:
+        return []
+    res = (supabase_client().table("documents").select("id,section,title,content,source,metadata")
+           .eq("section", "lab_map").in_("title", titles).execute())
+    order = {t: i for i, t in enumerate(titles)}
+    return sorted(res.data, key=lambda r: order[r["title"]])

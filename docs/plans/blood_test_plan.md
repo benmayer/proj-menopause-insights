@@ -78,7 +78,7 @@ fetch (+labs) -> analyse (+lab summary) -> triage (+lab context) -> retrieve (+l
 - E2E mock run with labs, then a real-model run for the demo persona.
 
 ## 8. Order of work
-Status: step 1 (parser) and step 2 (API `/labs` POST/GET/PUT/DELETE, `LabStore`, state `labs_id`/`labs`, Fetch, age from lab DOB) are DONE. Step 3 DONE too: `app/agent/labs.py` (summarise_labs, draw-timing, changes with comparable flag, align_labs, thresholds block), analyse + triage wiring, `young` no longer blocks the irregular category, 79 tests. Next: step 4 retrieve + write + check.
+Status: ALL STEPS DONE (11 Nov): parser, `/labs` API, lab summary + alignment + triage, Retrieve (lab_map cards + German lab queries), Write ("Your lab values"), Check (lab numbers), Interpret ("What your blood test may show", safety lines), Guardrail (soft age rule, lab wording bans, dose regex ignores lab units), UI (upload, confirm table, alignment expander), CLI `--lab-pdf` / `--labs-json`, 92 tests. Sample: `samples/persona_4_peri_labs.md` (synthetic). Real-data personas stay in gitignored `data/`. Open: review thresholds block in `app/agent/labs.py`, lab_map wording, anonymised demo PDFs.
 1. Parser + fixtures + tests, run against the real PDFs locally (45 min)
 2. API + state + fetch (30 min)
 3. `summarise_labs` + alignment + triage changes + tests (45 min)

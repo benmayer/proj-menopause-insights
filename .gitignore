@@ -226,9 +226,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Project: private health data
-data/raw/
-data/clue/
-data/bloodtests/
+# everything under data/: raw uploads, Clue export, lab PDFs, persona reports made from real data
+data/
 
 # Licensed source PDFs for RAG (not redistributed)
 rag_pdfs/

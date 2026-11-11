@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
+import pandas as pd
 import streamlit as st
 
 from app.agent import nodes
@@ -71,12 +72,12 @@ RATING = {0: "none", 1: "mild", 2: "moderate", 3: "strong"}
 step = st.session_state.get("step", "input")
 
 
-def run_report(dataset_id, user_id, age, intake):
+def run_report(dataset_id, user_id, age, intake, labs_id=None):
     nodes.http = client_factory()
     with st.spinner("Analysing your cycles, reading the reference material, writing and checking the report…"):
         try:
             out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
-                                        "intake": intake})
+                                        "intake": intake, "labs_id": labs_id})
             cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
             st.session_state.update(result={"out": out, "cycles": cycles}, step="report")
             return True
@@ -145,12 +146,63 @@ if step == "input" or not st.session_state.get("result"):
             ratings[k] = v
     top_concern = st.text_input("What bothers you most? (optional)", max_chars=200,
                                 placeholder="e.g. I wake at 3am and can't get back to sleep")
+
+    st.subheader("Blood tests (optional)")
+    st.caption("Upload lab reports as PDF (text PDFs, not scans). Values are read in code: your name, address and date of "
+               "birth are not kept or sent. The values are sent to OpenAI to write the report. Nothing is stored.")
+    pdfs = st.file_uploader("Lab report PDFs", type=["pdf"], accept_multiple_files=True)
+    if pdfs:
+        lkey = tuple((f.name, f.size) for f in pdfs)
+        if st.session_state.get("labs_key") != lkey:
+            labs_id, draws, errs = None, [], []
+            for f in pdfs:
+                try:
+                    with client_factory()() as c:
+                        r = c.post("/labs", params={"labs_id": labs_id} if labs_id else None,
+                                   files={"file": (f.name, f.getvalue())})
+                    r.raise_for_status()
+                    labs_id, draws = r.json()["labs_id"], r.json()["draws"]
+                except Exception as e:
+                    errs.append(f"{f.name}: {getattr(getattr(e, 'response', None), 'text', str(e))[:200]}")
+            st.session_state.update(labs_key=lkey, labs={"labs_id": labs_id, "draws": draws} if labs_id else None,
+                                    labs_errors=errs)
+    elif st.session_state.get("labs_key"):
+        st.session_state.update(labs_key=None, labs=None, labs_errors=[])
+    for e in st.session_state.get("labs_errors", []):
+        st.error(f"Could not read {e}")
+    labs, edited = st.session_state.get("labs"), {}
+    if labs:
+        st.caption("Check the values against your report and fix any that were read wrongly. "
+                   "Flags are recalculated from the range printed on the report.")
+        for d in labs["draws"]:
+            k = f"{labs['labs_id']}_{d['draw_date']}"
+            cd = st.number_input(f"Cycle day of the blood draw on {d['draw_date']} (0 = unknown)", 0, 60,
+                                 d.get("cycle_day") or 0, key=f"cd_{k}")
+            df = pd.DataFrame(d["results"])[["analyte", "value", "unit", "ref_low", "ref_high", "flag"]]
+            edited[d["draw_date"]] = (cd, st.data_editor(df, key=f"ed_{k}", hide_index=True, num_rows="fixed",
+                                                         disabled=["analyte", "flag"], use_container_width=True))
+
     go = st.button("Generate report", type="primary", disabled=not dataset_id)
     if go:
         intake = {"symptoms": ratings, "top_concern": top_concern, "last_period": None,
                   "hormones": {"Yes": "yes", "No": "no"}.get(hormones),
                   "surgery": {"Yes": "yes", "No": "no"}.get(surgery)}
-        if run_report(dataset_id, user_id, age, intake):
+        labs_id = None
+        if labs and edited:  # send the reader's corrections; the server recomputes the flags
+            fixed = []
+            for d in labs["draws"]:
+                cd, ed = edited[d["draw_date"]]
+                rows = [{k: (None if pd.isna(v) else v) for k, v in r.items()} for r in ed.to_dict("records")]
+                fixed.append({**d, "cycle_day": cd or None, "results": rows})
+            try:
+                with client_factory()() as c:
+                    pr = c.put(f"/labs/{labs['labs_id']}", json=fixed)
+                pr.raise_for_status()
+                labs_id = labs["labs_id"]
+            except Exception as e:
+                st.error(f"Could not use the lab values: {getattr(getattr(e, 'response', None), 'text', str(e))[:200]}")
+                st.stop()
+        if run_report(dataset_id, user_id, age, intake, labs_id):
             st.rerun()
     st.stop()
 
@@ -158,7 +210,14 @@ if step == "input" or not st.session_state.get("result"):
 res = st.session_state["result"]
 st.header("Step 2 of 2: your report")
 if st.button("← Start over"):
-    st.session_state.update(step="input")
+    labs = st.session_state.get("labs")
+    if labs:  # drop the parsed values from the server's memory
+        try:
+            with client_factory()() as c:
+                c.delete(f"/labs/{labs['labs_id']}")
+        except Exception:
+            pass
+    st.session_state.update(step="input", labs=None, labs_key=None)
     st.session_state.pop("result", None)
     st.rerun()
 
@@ -203,5 +262,11 @@ with tab_report:
         st.caption("Email limit reached for this session.")
 with tab_findings:
     st.markdown(out["report"])
+    al = ((out.get("findings") or {}).get("labs") or {}).get("alignment")
+    if al:
+        with st.expander("How the blood values, cycle and symptoms line up (computed, not a diagnosis)"):
+            st.write(f"Level: **{al['level']}** ({al['count']} signals)")
+            for sg in al["signals"]:
+                st.write(f"- {sg['text']}")
     with st.expander("Raw computed stats"):
         st.json(out["stats"])

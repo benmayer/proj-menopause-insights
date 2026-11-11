@@ -44,11 +44,12 @@ Accepts **CSV or JSON**. Any file with a cycle start date works; headers are mat
 | RAG | Supabase pgvector: 15 instruction/reference chunks + 316 coaching-material chunks (5 PDFs, cited by page). Done |
 | Agent | LangGraph: fetch, analyse, retrieve, write, check, interpret, guardrail. Done; reports pass checks but are generic |
 | Reports | `samples/report_*.md` (human) + `*_findings.md` (verified facts) |
-| UI | `streamlit run ui/app.py`: demo or upload, age, quick symptom form, report, cycle chart with events, findings, email button (send not yet tested). Done |
-| Next | Symptom input + symptom cards to make reports specific ([`docs/findings_and_improvements.md`](docs/findings_and_improvements.md)), email, deploy, slides |
+| UI | `streamlit run ui/app.py`: two steps (data, symptoms and lab PDFs, then report). Cycle chart inside the report, findings, lab alignment, email button (send tested). Done |
+| Blood tests | Lab PDF upload: parsed in code (allow-listed analytes, name and DOB dropped), reader confirms values, flags from the printed range, draw timing, alignment of cycle + symptoms + labs, interpretation with guardrails. Plan: [`docs/plans/blood_test_plan.md`](docs/plans/blood_test_plan.md). Done |
+| Next | Deploy, README polish, GTM file to repo root, demo video |
 
 Run the UI: `streamlit run ui/app.py` (uses `API_BASE_URL` if a `uvicorn app.api.main:app` is running, otherwise the API in-process).
-Run the tests: `pytest` (61 tests; the RAG ones need `.env` keys).
+Run the tests: `pytest` (92 tests; the RAG ones need `.env` keys).
 Generate a report: `python -m app.agent.run --dataset demo_synthetic_perimenopause --user synth_peri --out samples/report_1.md`
 
 ## Architecture
@@ -61,7 +62,7 @@ CSV upload ──▶ FastAPI ──(/cycles, /stats)──▶ LangGraph agent �
 Streamlit UI ──▶ agent ──▶ report on screen ──▶ email (Resend)
 ```
 
-**Agent flow:** Fetch → Analyse (flags, case tags, symptom summary) → Triage (context category) → Retrieve → Write findings → Check (every number/date
+**Agent flow:** Fetch (stats + optional lab draws) → Analyse (flags, case tags, symptom and lab summary) → Triage (context category) → Retrieve → Write findings → Check (every number/date
 verified; loops back on mismatch) → Interpret (meaning + advice from cited coaching chunks) → Guardrail
 (citations, numbers, banned wording; loops back to Interpret).
 

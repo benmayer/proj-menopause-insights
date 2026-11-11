@@ -5,7 +5,7 @@ from app.agent.labs import align_labs, summarise_labs, timing
 
 def draw(date, day, **vals):
     rng = {"fsh": (3.5, 12.5, "mIU/ml"), "e2": (20, 3000, "pg/ml"), "amh": (0.17, 7.37, "ng/ml"),
-           "tsh": (0.27, 4.0, "µIU/ml"), "lh": (2.4, 12.6, "mIU/ml")}
+           "tsh": (0.27, 4.0, "µIU/ml"), "lh": (2.4, 12.6, "mIU/ml"), "hb": (11.6, 15.5, "g/dl")}
     res = []
     for k, v in vals.items():
         lo, hi, u = rng[k]

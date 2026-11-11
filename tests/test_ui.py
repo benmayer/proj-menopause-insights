@@ -52,3 +52,33 @@ def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
     assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["symptoms"]["temperature"] == 3 and seen["intake"]["top_concern"] == "I wake at 3am"
     assert seen["intake"]["hormones"] == "no" and seen["intake"]["last_period"] is None
     assert any("Step 2 of 2" in h.value for h in at.header)
+
+
+def test_ui_confirms_lab_values_and_passes_labs_id_to_the_graph(monkeypatch):
+    from app.api.store import lab_store
+    draw = {"draw_date": "2025-04-03", "cycle_day": 7, "age_at_draw": 30, "age_today": 32,
+            "results": [{"analyte": "fsh", "value": 10.33, "unit": "mIU/ml", "ref_low": 3.5, "ref_high": 12.5, "flag": "within"},
+                        {"analyte": "tpo", "value": 21.1, "unit": "kIU/l", "ref_low": None, "ref_high": 34.0, "flag": "within"}]}
+    lid = lab_store.put([draw])
+    seen = {}
+
+    class FakeGraph:
+        def invoke(self, state):
+            seen.update(state)
+            return {**FAKE, "findings": {"labs": {"alignment": {"level": "moderate", "count": 2,
+                                                                "signals": [{"id": "x", "text": "AMH is at the low end"}]}}}}
+    monkeypatch.setattr("app.agent.graph.build_graph", lambda: FakeGraph())
+    at = AppTest.from_file("../ui/app.py", default_timeout=30)
+    at.session_state["labs"] = {"labs_id": lid, "draws": [draw]}
+    at = at.run()
+    assert not at.exception, at.exception
+    assert any("Cycle day of the blood draw on 2025-04-03" in n.label for n in at.number_input)
+    at.selectbox[0].select("demo_synthetic_perimenopause")
+    at = at.run()
+    at.number_input(key=f"cd_{lid}_2025-04-03").set_value(3)   # reader supplies the cycle day
+    at.button[0].click()
+    at = at.run()
+    assert not at.exception, at.exception
+    assert seen["labs_id"] == lid
+    assert lab_store.get(lid)[0]["cycle_day"] == 3                 # the correction reached the server
+    assert any("line up" in e.label for e in at.expander)
