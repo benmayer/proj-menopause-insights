@@ -4,6 +4,7 @@ Talks to the FastAPI data service at API_BASE_URL; if none is running it uses th
 Run: streamlit run ui/app.py
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -66,9 +67,30 @@ if os.getenv("APP_PASSWORD") and not st.session_state.get("ok"):
 st.title("🌿 Menohelp")
 st.caption("Upload your cycle data and get a plain-language report. Not medical advice.")
 
-# --- sidebar: data + inputs --------------------------------------------------
-with st.sidebar:
-    st.header("1. Your data")
+RATING = {0: "none", 1: "mild", 2: "moderate", 3: "strong"}
+step = st.session_state.get("step", "input")
+
+
+def run_report(dataset_id, user_id, age, intake):
+    nodes.http = client_factory()
+    with st.spinner("Analysing your cycles, reading the reference material, writing and checking the report…"):
+        try:
+            out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
+                                        "intake": intake})
+            cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
+            st.session_state.update(result={"out": out, "cycles": cycles}, step="report")
+            return True
+        except Exception as e:
+            st.session_state.pop("result", None)
+            st.error(f"Something went wrong: {str(e)[:300]}")
+            return False
+
+
+# --- step 1: data + inputs ---------------------------------------------------
+if step == "input" or not st.session_state.get("result"):
+    st.header("Step 1 of 2: your data and symptoms")
+
+    st.subheader("Your data")
     mode = st.radio("Source", ["Demo data", "Upload my file"], horizontal=True)
     dataset_id = None
     if mode == "Demo data":
@@ -101,59 +123,69 @@ with st.sidebar:
         elif users:
             user_id = users[0]
 
-    st.header("2. About you (optional)")
-    age = st.number_input("Age (if not in your file)", min_value=0, max_value=90, value=0,
+    st.subheader("About you (optional)")
+    c1, c2, c3 = st.columns(3)
+    age = c1.number_input("Age (if not in your file)", min_value=0, max_value=90, value=0,
                           help="0 = not given. Used to tailor the wording.")
-    last_period = st.selectbox("When was your last period?", ["Not sure / skip", "Less than 3 months ago",
-                                                              "3 to 12 months ago", "More than 12 months ago"])
-    hormones = st.selectbox("Hormonal contraception or hormone therapy?", ["No", "Yes", "Not sure"],
+    hormones = c2.selectbox("Hormonal contraception or hormone therapy?", ["No", "Yes", "Not sure"],
                             help="The pill or hormonal coil sets your cycle, so cycle length then says little.")
-    surgery = st.selectbox("Hysterectomy, endometrial ablation or ovaries removed?", ["No", "Yes", "Not sure"])
+    surgery = c3.selectbox("Hysterectomy, ablation or ovaries removed?", ["No", "Yes", "Not sure"])
 
-    st.header("3. Symptoms (optional)")
-    st.caption("Your answers are sent to OpenAI to write the report. Please don't type names or contact details. "
+    st.subheader("Symptoms (optional)")
+    st.caption("Rate how much each area bothers you. Leave at 'none' if it doesn't apply. "
+               "Your answers are sent to OpenAI to write the report. Please don't type names or contact details. "
                "Nothing is stored.")
-    picked = st.multiselect("Where do you notice changes?", list(SYSTEMS),
-                            format_func=lambda k: f"{SYSTEMS[k][0]} ({SYSTEMS[k][1]})")
     ratings = {}
-    for k in picked:
-        ratings[k] = st.select_slider(SYSTEMS[k][0], options=[1, 2, 3], value=2, key=f"r_{k}",
-                                      format_func=lambda v: {1: "mild", 2: "moderate", 3: "strong"}[v])
+    for k, (title, examples) in SYSTEMS.items():
+        left, right = st.columns([2, 3])
+        left.markdown(f"**{title}**  \n<small>{examples}</small>", unsafe_allow_html=True)
+        v = right.select_slider(title, options=list(RATING), value=0, key=f"r_{k}",
+                                format_func=RATING.get, label_visibility="collapsed")
+        if v:
+            ratings[k] = v
     top_concern = st.text_input("What bothers you most? (optional)", max_chars=200,
                                 placeholder="e.g. I wake at 3am and can't get back to sleep")
-    go = st.button("Generate report", type="primary", disabled=not dataset_id, use_container_width=True)
-
-# --- run ---------------------------------------------------------------------
-if go:
-    nodes.http = client_factory()
-    with st.spinner("Analysing your cycles, reading the reference material, writing and checking the report…"):
-        try:
-            intake = {"symptoms": ratings, "top_concern": top_concern,
-                      "last_period": {"Less than 3 months ago": "lt_3m", "3 to 12 months ago": "3_12m",
-                                      "More than 12 months ago": "over_12m"}.get(last_period),
-                      "hormones": {"Yes": "yes", "No": "no"}.get(hormones),
-                      "surgery": {"Yes": "yes", "No": "no"}.get(surgery)}
-            out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
-                                        "intake": intake})
-            cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
-            st.session_state["result"] = {"out": out, "cycles": cycles}
-        except Exception as e:
-            st.session_state.pop("result", None)
-            st.error(f"Something went wrong: {str(e)[:300]}")
-
-res = st.session_state.get("result")
-if not res:
-    st.info("Pick demo data or upload a file in the sidebar, then click **Generate report**.")
+    go = st.button("Generate report", type="primary", disabled=not dataset_id)
+    if go:
+        intake = {"symptoms": ratings, "top_concern": top_concern, "last_period": None,
+                  "hormones": {"Yes": "yes", "No": "no"}.get(hormones),
+                  "surgery": {"Yes": "yes", "No": "no"}.get(surgery)}
+        if run_report(dataset_id, user_id, age, intake):
+            st.rerun()
     st.stop()
+
+# --- step 2: report ----------------------------------------------------------
+res = st.session_state["result"]
+st.header("Step 2 of 2: your report")
+if st.button("← Start over"):
+    st.session_state.update(step="input")
+    st.session_state.pop("result", None)
+    st.rerun()
 
 out, cycles = res["out"], res["cycles"]
 if not out.get("passed") or out.get("guard_errors"):
     st.warning("This report did not fully pass our automatic checks: "
                + "; ".join(out.get("check_errors", []) + out.get("guard_errors", [])))
 
-tab_report, tab_chart, tab_findings = st.tabs(["Your report", "Cycle chart", "Verified findings"])
+def show_chart():
+    st.pyplot(cycle_chart(cycles, out["stats"].get("events", [])))
+    st.caption("Green band: 21-35 days, the typical range used by the NHS. Dots mark long, short and skipped cycles.")
+
+
+def report_with_chart(md: str):
+    """Render the report with the cycle chart right after the first section ("What we found")."""
+    parts = re.split(r"(?m)^(?=## )", md, maxsplit=2)  # [title, first section, rest]
+    if len(parts) < 3:
+        st.markdown(md)
+        return show_chart()
+    st.markdown(parts[0] + parts[1])
+    show_chart()
+    st.markdown(parts[2])
+
+
+tab_report, tab_findings = st.tabs(["Your report", "Verified findings"])
 with tab_report:
-    st.markdown(out["human_report"])
+    report_with_chart(out["human_report"])
     st.download_button("Download report (.md)", out["human_report"], file_name="cycle_report.md")
     st.divider()
     st.subheader("Email this report")
@@ -169,9 +201,6 @@ with tab_report:
             st.error(f"Could not send: {str(e)[:200]}")
     if sent >= MAX_EMAILS:
         st.caption("Email limit reached for this session.")
-with tab_chart:
-    st.pyplot(cycle_chart(cycles, out["stats"].get("events", [])))
-    st.caption("Green band: 21-35 days, the typical range used by the NHS. Dots mark long, short and skipped cycles.")
 with tab_findings:
     st.markdown(out["report"])
     with st.expander("Raw computed stats"):

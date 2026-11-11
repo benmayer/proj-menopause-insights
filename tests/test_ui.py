@@ -19,7 +19,6 @@ def test_ui_renders_and_generates(monkeypatch):
     assert not at.exception
     at.selectbox[0].select("demo_synthetic_perimenopause")
     at = at.run()
-    at.selectbox[1].select("synth_peri") if len(at.selectbox) > 1 else None
     at.button[0].click()
     at = at.run()
     assert not at.exception, at.exception
@@ -43,11 +42,13 @@ def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
     at = AppTest.from_file("../ui/app.py", default_timeout=30).run()
     at.selectbox[0].select("demo_synthetic_perimenopause")
     at = at.run()
-    at.multiselect[0].select("sleep").select("temperature")
+    at.select_slider(key="r_sleep").set_value(2)
+    at.select_slider(key="r_temperature").set_value(3)
     at = at.run()
     at.text_input[0].input("I wake at 3am")
     at.button[0].click()
     at = at.run()
     assert not at.exception, at.exception
-    assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["top_concern"] == "I wake at 3am"
+    assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["symptoms"]["temperature"] == 3 and seen["intake"]["top_concern"] == "I wake at 3am"
     assert seen["intake"]["hormones"] == "no" and seen["intake"]["last_period"] is None
+    assert any("Step 2 of 2" in h.value for h in at.header)
