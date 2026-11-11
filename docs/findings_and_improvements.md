@@ -46,3 +46,14 @@ Status after Phase 6: the agent runs end to end and every report passes its chec
 Generate persona reports (young irregular, mid-40s with the synthetic pattern, stable 30s, long gap, very few cycles,
 plus symptom variants) and review with Ben: Is it specific to the input? Is every claim cited? Anything unsafe?
 Keep the guardrail checks as tests (`tests/test_graph.py`).
+
+## Update: symptom intake built (11 Nov, steps 3-4 of `docs/plans/symptom_intake_plan.md`)
+- **UI:** quick form (last period, hormonal contraception/HT, surgery, 15 body-system ticks rated mild/moderate/strong, one-line top concern, OpenAI notice).
+- **Pipeline:** `analyse` computes a symptom summary in code, new deterministic `triage` node picks a context category
+  (`masked_by_hormones`, `surgical_or_other`, `no_period_12m`, `young`, `irregular_recent`, `regular`) that drops cycle-trend claims when cycle length is not a natural signal,
+  `retrieve` adds symptom-table cards (exact lookup) and guarantees practical-advice chunks for each top symptom, `interpret` prioritises the reader's concern, adds
+  "What your symptoms may point to", and appends fixed red-flag text (code-written) for strong heart/mind/cycle ratings.
+- **New guardrails:** symptom section required and cited, no claims about the reader's own hormone levels, hormone-therapy mentioned only when flags or temperature/sexuality symptoms or a question about it.
+- **Result:** persona reports (`samples/persona_*.md`) now reflect the reader's words and symptoms; pill user gets a "cycle data is artificial" note instead of a trend.
+- **Known limits:** guardrail checks that a citation exists and is present, not that the cited source supports the sentence (e.g. a cooling-down tip cited to the symptom table);
+  next candidate is an LLM-judge claim-support check. Advice quality is bounded by what the chunks contain; symptom cards are lookups, not curated advice.

@@ -15,6 +15,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", required=True, help="dataset_id, e.g. demo_synthetic_perimenopause")
     ap.add_argument("--user", default=None, help="user_id (optional if the dataset has one user)")
+    ap.add_argument("--intake", default=None, help='JSON file: {"symptoms": {"sleep": 3}, "top_concern": "...", '
+                    '"hormones": "yes|no", "surgery": "yes|no", "last_period": "lt_3m|3_12m|over_12m"}')
+    ap.add_argument("--age", type=float, default=None, help="age if the data has none")
     ap.add_argument("--out", default=None, help="write the report here (markdown)")
     ap.add_argument("--api", default=None, help="base URL of a running API (default: in-process)")
     a = ap.parse_args(argv)
@@ -29,7 +32,9 @@ def main(argv=None) -> int:
         client.__enter__()
         nodes.http = lambda: client
 
-    out = build_graph().invoke({"dataset_id": a.dataset, "user_id": a.user})
+    import json
+    intake = json.loads(Path(a.intake).read_text()) if a.intake else None
+    out = build_graph().invoke({"dataset_id": a.dataset, "user_id": a.user, "age": a.age, "intake": intake})
     findings, human = out["report"], out["human_report"]
     if not out.get("passed"):
         findings = ("> **Verification failed after retries.** Unverified: " + "; ".join(out["check_errors"])

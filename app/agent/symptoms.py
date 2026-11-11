@@ -73,3 +73,13 @@ def systems_of(ratings: dict[str, int]) -> list[str]:
         if key and key not in out:
             out.append(key)
     return out
+
+
+def rate_systems(ratings: dict[str, int]) -> dict[str, int]:
+    """Highest rating (1-3) per body system, from symptom ids or system keys. Zeros and unmapped symptoms drop out."""
+    out: dict[str, int] = {}
+    for k, v in ratings.items():
+        key = k if k in SYSTEMS else (SYMPTOMS[k][2] if k in SYMPTOMS else None)
+        if key and v:
+            out[key] = max(out.get(key, 0), int(v))
+    return out

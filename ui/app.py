@@ -13,6 +13,7 @@ import httpx
 import streamlit as st
 
 from app.agent import nodes
+from app.agent.symptoms import SYSTEMS
 from app.agent.graph import build_graph
 from ui.charts import cycle_chart
 
@@ -103,6 +104,23 @@ with st.sidebar:
     st.header("2. About you (optional)")
     age = st.number_input("Age (if not in your file)", min_value=0, max_value=90, value=0,
                           help="0 = not given. Used to tailor the wording.")
+    last_period = st.selectbox("When was your last period?", ["Not sure / skip", "Less than 3 months ago",
+                                                              "3 to 12 months ago", "More than 12 months ago"])
+    hormones = st.selectbox("Hormonal contraception or hormone therapy?", ["No", "Yes", "Not sure"],
+                            help="The pill or hormonal coil sets your cycle, so cycle length then says little.")
+    surgery = st.selectbox("Hysterectomy, endometrial ablation or ovaries removed?", ["No", "Yes", "Not sure"])
+
+    st.header("3. Symptoms (optional)")
+    st.caption("Your answers are sent to OpenAI to write the report. Please don't type names or contact details. "
+               "Nothing is stored.")
+    picked = st.multiselect("Where do you notice changes?", list(SYSTEMS),
+                            format_func=lambda k: f"{SYSTEMS[k][0]} ({SYSTEMS[k][1]})")
+    ratings = {}
+    for k in picked:
+        ratings[k] = st.select_slider(SYSTEMS[k][0], options=[1, 2, 3], value=2, key=f"r_{k}",
+                                      format_func=lambda v: {1: "mild", 2: "moderate", 3: "strong"}[v])
+    top_concern = st.text_input("What bothers you most? (optional)", max_chars=200,
+                                placeholder="e.g. I wake at 3am and can't get back to sleep")
     go = st.button("Generate report", type="primary", disabled=not dataset_id, use_container_width=True)
 
 # --- run ---------------------------------------------------------------------
@@ -110,7 +128,13 @@ if go:
     nodes.http = client_factory()
     with st.spinner("Analysing your cycles, reading the reference material, writing and checking the report…"):
         try:
-            out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None})
+            intake = {"symptoms": ratings, "top_concern": top_concern,
+                      "last_period": {"Less than 3 months ago": "lt_3m", "3 to 12 months ago": "3_12m",
+                                      "More than 12 months ago": "over_12m"}.get(last_period),
+                      "hormones": {"Yes": "yes", "No": "no"}.get(hormones),
+                      "surgery": {"Yes": "yes", "No": "no"}.get(surgery)}
+            out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
+                                        "intake": intake})
             cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
             st.session_state["result"] = {"out": out, "cycles": cycles}
         except Exception as e:

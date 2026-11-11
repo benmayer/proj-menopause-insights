@@ -94,7 +94,7 @@ GOOD = ("# Your cycle report\n## What we found\nYour data shows 6 cycles.\n"
 
 
 def test_guard_accepts_clean_cited_report():
-    st = {"stats": STATS, "findings": {}, "context": CTX}
+    st = {"stats": STATS, "findings": {"flags": [{"rule": "x"}]}, "context": CTX}
     assert nodes.guard_report(GOOD, st) == []
 
 
@@ -107,7 +107,7 @@ def test_guard_accepts_clean_cited_report():
     (GOOD.replace("6 cycles", "7 cycles"), "number 7"),
 ])
 def test_guard_catches(bad, expect):
-    errs = nodes.guard_report(bad, {"stats": STATS, "findings": {}, "context": CTX})
+    errs = nodes.guard_report(bad, {"stats": STATS, "findings": {"flags": [{"rule": "x"}]}, "context": CTX})
     assert any(expect in e for e in errs), errs
 
 
@@ -147,7 +147,93 @@ def test_graph_gives_up_after_max_retries(client, monkeypatch):
 
 
 def test_guard_blocks_menopause_framing_for_young_reader():
-    st = {"stats": STATS, "findings": {"case_tags": ["young"]}, "context": CTX}
+    st = {"stats": STATS, "findings": {"case_tags": ["young"], "flags": [{"rule": "x"}]}, "context": CTX}
     bad = GOOD.replace("in the transition", "in the hormonal transition")
     assert any("under 40" in e for e in nodes.guard_report(bad, st))
     assert not any("under 40" in e for e in nodes.guard_report(GOOD.replace("in the transition", "for many reasons"), st))
+
+
+# --- Symptom intake, triage, red flags -----------------------------------------
+def _state(intake=None, **stats):
+    st = {"stats": {**STATS, **stats}, "dataset_id": "u", "intake": intake}
+    st["findings"] = nodes.analyse(st)["findings"]
+    return st
+
+
+def test_symptom_summary_computed_in_code():
+    s = nodes.summarise_symptoms({"symptoms": {"temperature": 3, "sleep": 2, "eyes": 0, "hot_flushes": 1},
+                                  "top_concern": "  poor sleep  "})
+    assert [x["key"] for x in s["systems"]] == ["temperature", "sleep"]      # strongest first, max per system
+    assert s["systems"][0]["rating"] == "strong" and s["top_concern"] == "poor sleep" and s["n_systems"] == 2
+    assert nodes.summarise_symptoms({"symptoms": {}}) is None and nodes.summarise_symptoms(None) is None
+
+
+@pytest.mark.parametrize("intake,extra,cat", [
+    ({"hormones": "yes"}, {}, "masked_by_hormones"),
+    ({"surgery": "yes"}, {}, "surgical_or_other"),
+    ({"last_period": "over_12m"}, {}, "no_period_12m"),
+    (None, {"age": 30}, "young"),
+    (None, {}, "irregular_recent"),                                            # STATS carries skipped cycle + jumps
+    (None, {"skipped_cycles": 0, "consecutive_jumps": 0, "mean_change": 1.0, "recent_mean": 29.0}, "regular"),
+])
+def test_triage_categories(intake, extra, cat):
+    st = _state(intake, **extra)
+    out = nodes.triage(st)["findings"]
+    assert out["category"] == cat
+    if cat in nodes.CYCLE_UNRELIABLE:
+        assert out["flags"] == [] and out["no_flags"]            # cycle-pattern claims suppressed
+
+
+def test_triage_red_flags_for_strong_ratings():
+    st = _state({"symptoms": {"heart": 3, "mind": 3, "sleep": 3, "temperature": 2}})
+    assert set(nodes.triage(st)["findings"]["red_flags"]) == {"heart", "mind"}
+
+
+def test_findings_sections_follow_triage():
+    f = nodes.triage(_state({"hormones": "yes", "symptoms": {"sleep": 2}}))["findings"]
+    heads = nodes._sections({"findings": f})
+    assert "About your cycle data" in heads and "Your reported symptoms" in heads and "Variability" not in heads
+
+
+def test_interpret_adds_fixed_red_flag_text_and_symptom_section(monkeypatch):
+    st = _state({"symptoms": {"heart": 3}})
+    st["findings"] = nodes.triage(st)["findings"]
+    st["context"], st["report"] = [], "# Findings\n---\n"
+    monkeypatch.setattr(nodes, "_llm", lambda m: "# Your cycle report\n## What we found\nok")
+    out = nodes.interpret(st)["human_report"]
+    assert "Worth acting on soon" in out and nodes.RED_FLAG_TEXT["heart"] in out
+    assert nodes.interpret_headings(st)[1] == nodes.SYMPTOM_HEADING
+
+
+SYM_CTX = [{"section": "symptom_map", "title": "Sleep regulation", "content": "x"},
+           {"section": "reference", "title": "r", "content": "shorter than 21 days"}]
+SYM_GOOD = GOOD.replace("## What this may mean", "## What your symptoms may point to\n"
+                        "The table lists progesterone deficiency as a possible factor for sleep trouble. [S1]\n"
+                        "## What this may mean")
+
+
+def _sym_state(flags=True):
+    return {"stats": STATS, "findings": {"flags": [{"rule": "x"}] if flags else [],
+                                         "symptoms": {"systems": [{"key": "sleep"}]}}, "context": SYM_CTX}
+
+
+def test_guard_symptom_section_required_and_cited():
+    st = _sym_state()
+    assert nodes.guard_report(SYM_GOOD, st) == []
+    assert any("missing section" in e for e in nodes.guard_report(GOOD, st))
+    uncited = SYM_GOOD.replace(" [S1]\n## What this", "\n## What this", 1)
+    assert any("uncited" in e for e in nodes.guard_report(uncited, st))
+
+
+def test_guard_blocks_claims_about_own_hormone_levels():
+    st = _sym_state()
+    bad = SYM_GOOD.replace("The table lists progesterone deficiency", "Your progesterone is low. The table lists progesterone deficiency")
+    assert any("hormone levels" in e for e in nodes.guard_report(bad, st))
+
+
+def test_guard_hormone_therapy_only_when_relevant():
+    st = _sym_state(flags=False)  # sleep symptom only, no flags
+    assert any("hormone therapy" in e for e in nodes.guard_report(SYM_GOOD, st))      # GOOD offers HT as an option
+    assert not any("hormone therapy" in e for e in nodes.guard_report(SYM_GOOD, _sym_state(flags=True)))
+    plain = SYM_GOOD.replace("Hormone therapy can be an option to discuss with a GP.", "You use hormone therapy.")
+    assert not any("hormone therapy" in e for e in nodes.guard_report(plain, st))

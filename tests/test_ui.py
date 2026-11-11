@@ -30,3 +30,24 @@ def test_chart_builds():
     fig = cycle_chart([{"cycle_start": "2024-01-01", "cycle_length": 28}, {"cycle_start": "2024-01-29", "cycle_length": 64}],
                       FAKE["stats"]["events"])
     assert fig.axes
+
+
+def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
+    seen = {}
+
+    class FakeGraph:
+        def invoke(self, state):
+            seen.update(state)
+            return FAKE
+    monkeypatch.setattr("app.agent.graph.build_graph", lambda: FakeGraph())
+    at = AppTest.from_file("../ui/app.py", default_timeout=30).run()
+    at.selectbox[0].select("demo_synthetic_perimenopause")
+    at = at.run()
+    at.multiselect[0].select("sleep").select("temperature")
+    at = at.run()
+    at.text_input[0].input("I wake at 3am")
+    at.button[0].click()
+    at = at.run()
+    assert not at.exception, at.exception
+    assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["top_concern"] == "I wake at 3am"
+    assert seen["intake"]["hormones"] == "no" and seen["intake"]["last_period"] is None

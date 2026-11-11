@@ -6,6 +6,7 @@ class AgentState(TypedDict, total=False):
     dataset_id: str
     user_id: str | None
     age: float | None    # optional, entered in the UI when the file has no age
+    intake: dict | None  # UI form: symptoms {system_key: 1-3}, top_concern, hormones, surgery, last_period
     # filled by nodes
     stats: dict          # Fetch: computed by the FastAPI /stats endpoint (never raw rows)
     findings: dict       # Analyse: deterministic interpretation of stats (which flags trigger)
