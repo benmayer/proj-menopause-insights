@@ -3,7 +3,10 @@ from pathlib import Path
 
 from app.agent.symptoms import SYMPTOMS, SYSTEMS, systems_of
 
-CARDS = (Path(__file__).resolve().parent.parent / "rag_docs" / "symptom_map.md").read_text()
+_CARDS = Path(__file__).resolve().parent.parent / "rag_docs" / "symptom_map.md"
+if not _CARDS.exists():  # licensed-source transcription: kept local, not in git
+    pytest.skip("rag_docs/symptom_map.md is local only", allow_module_level=True)
+CARDS = _CARDS.read_text()
 
 
 def test_every_system_has_a_card_and_every_card_a_system():

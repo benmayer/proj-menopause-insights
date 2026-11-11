@@ -235,3 +235,7 @@ rag_docs/knowledge/
 
 #Misc
 .DS_Store
+# Transcriptions/translations of licensed MenoCert tables: kept locally and in the Supabase RAG, not in git
+rag_docs/image_transcripts/
+rag_docs/lab_map.md
+rag_docs/symptom_map.md

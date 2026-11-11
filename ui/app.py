@@ -91,6 +91,41 @@ def run_report(dataset_id, user_id, age, intake, labs_id=None):
 if step == "input" or not st.session_state.get("result"):
     st.header("Step 1 of 2: your data and symptoms")
 
+    st.subheader("Blood tests (optional)")
+    st.caption("Upload lab reports as PDF (text PDFs, not scans). Values are read in code: your name, address and date of "
+               "birth are not kept or sent. The values are sent to OpenAI to write the report. Nothing is stored.")
+    pdfs = st.file_uploader("Lab report PDFs", type=["pdf"], accept_multiple_files=True)
+    if pdfs:
+        lkey = tuple((f.name, f.size) for f in pdfs)
+        if st.session_state.get("labs_key") != lkey:
+            labs_id, draws, errs = None, [], []
+            for f in pdfs:
+                try:
+                    with client_factory()() as c:
+                        r = c.post("/labs", params={"labs_id": labs_id} if labs_id else None,
+                                   files={"file": (f.name, f.getvalue())})
+                    r.raise_for_status()
+                    labs_id, draws = r.json()["labs_id"], r.json()["draws"]
+                except Exception as e:
+                    errs.append(f"{f.name}: {getattr(getattr(e, 'response', None), 'text', str(e))[:200]}")
+            st.session_state.update(labs_key=lkey, labs={"labs_id": labs_id, "draws": draws} if labs_id else None,
+                                    labs_errors=errs)
+    elif st.session_state.get("labs_key"):
+        st.session_state.update(labs_key=None, labs=None, labs_errors=[])
+    for e in st.session_state.get("labs_errors", []):
+        st.error(f"Could not read {e}")
+    labs, edited = st.session_state.get("labs"), {}
+    if labs:
+        st.caption("Check the values against your report and fix any that were read wrongly. "
+                   "Flags are recalculated from the range printed on the report.")
+        for d in labs["draws"]:
+            k = f"{labs['labs_id']}_{d['draw_date']}"
+            cd = st.number_input(f"Cycle day of the blood draw on {d['draw_date']} (0 = unknown)", 0, 60,
+                                 d.get("cycle_day") or 0, key=f"cd_{k}")
+            df = pd.DataFrame(d["results"])[["analyte", "value", "unit", "ref_low", "ref_high", "flag"]]
+            edited[d["draw_date"]] = (cd, st.data_editor(df, key=f"ed_{k}", hide_index=True, num_rows="fixed",
+                                                         disabled=["analyte", "flag"], use_container_width=True))
+
     st.subheader("Your data")
     mode = st.radio("Source", ["Demo data", "Upload my file"], horizontal=True)
     dataset_id = None
@@ -126,7 +161,9 @@ if step == "input" or not st.session_state.get("result"):
 
     st.subheader("About you (optional)")
     c1, c2, c3 = st.columns(3)
-    age = c1.number_input("Age (if not in your file)", min_value=0, max_value=90, value=0,
+    lab_age = (labs["draws"][-1].get("age_today") if labs else None) or 0   # from the lab report's date of birth
+    age = c1.number_input("Age" + (" (from your lab report)" if lab_age else " (if not in your file)"),
+                          min_value=0, max_value=90, value=int(lab_age), key=f"age_{labs['labs_id'] if labs else 'none'}",
                           help="0 = not given. Used to tailor the wording.")
     hormones = c2.selectbox("Hormonal contraception or hormone therapy?", ["No", "Yes", "Not sure"],
                             help="The pill or hormonal coil sets your cycle, so cycle length then says little.")
@@ -146,41 +183,6 @@ if step == "input" or not st.session_state.get("result"):
             ratings[k] = v
     top_concern = st.text_input("What bothers you most? (optional)", max_chars=200,
                                 placeholder="e.g. I wake at 3am and can't get back to sleep")
-
-    st.subheader("Blood tests (optional)")
-    st.caption("Upload lab reports as PDF (text PDFs, not scans). Values are read in code: your name, address and date of "
-               "birth are not kept or sent. The values are sent to OpenAI to write the report. Nothing is stored.")
-    pdfs = st.file_uploader("Lab report PDFs", type=["pdf"], accept_multiple_files=True)
-    if pdfs:
-        lkey = tuple((f.name, f.size) for f in pdfs)
-        if st.session_state.get("labs_key") != lkey:
-            labs_id, draws, errs = None, [], []
-            for f in pdfs:
-                try:
-                    with client_factory()() as c:
-                        r = c.post("/labs", params={"labs_id": labs_id} if labs_id else None,
-                                   files={"file": (f.name, f.getvalue())})
-                    r.raise_for_status()
-                    labs_id, draws = r.json()["labs_id"], r.json()["draws"]
-                except Exception as e:
-                    errs.append(f"{f.name}: {getattr(getattr(e, 'response', None), 'text', str(e))[:200]}")
-            st.session_state.update(labs_key=lkey, labs={"labs_id": labs_id, "draws": draws} if labs_id else None,
-                                    labs_errors=errs)
-    elif st.session_state.get("labs_key"):
-        st.session_state.update(labs_key=None, labs=None, labs_errors=[])
-    for e in st.session_state.get("labs_errors", []):
-        st.error(f"Could not read {e}")
-    labs, edited = st.session_state.get("labs"), {}
-    if labs:
-        st.caption("Check the values against your report and fix any that were read wrongly. "
-                   "Flags are recalculated from the range printed on the report.")
-        for d in labs["draws"]:
-            k = f"{labs['labs_id']}_{d['draw_date']}"
-            cd = st.number_input(f"Cycle day of the blood draw on {d['draw_date']} (0 = unknown)", 0, 60,
-                                 d.get("cycle_day") or 0, key=f"cd_{k}")
-            df = pd.DataFrame(d["results"])[["analyte", "value", "unit", "ref_low", "ref_high", "flag"]]
-            edited[d["draw_date"]] = (cd, st.data_editor(df, key=f"ed_{k}", hide_index=True, num_rows="fixed",
-                                                         disabled=["analyte", "flag"], use_container_width=True))
 
     go = st.button("Generate report", type="primary", disabled=not dataset_id)
     if go:

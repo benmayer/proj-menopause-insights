@@ -79,6 +79,6 @@ def test_ui_confirms_lab_values_and_passes_labs_id_to_the_graph(monkeypatch):
     at.button[0].click()
     at = at.run()
     assert not at.exception, at.exception
-    assert seen["labs_id"] == lid
+    assert seen["labs_id"] == lid and seen["age"] == 32                # age filled from the lab report's date of birth
     assert lab_store.get(lid)[0]["cycle_day"] == 3                 # the correction reached the server
     assert any("line up" in e.label for e in at.expander)
