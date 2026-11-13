@@ -3,17 +3,38 @@
 Everything here is arithmetic on the values the reader confirmed plus the ranges printed on the report.
 Thresholds come from the coaching material (page refs) and live in one block so they can be reviewed in one place.
 """
+from app.agent.age_norms import age_norm
+
 # --- thresholds (review these) -------------------------------------------------
 FSH_LATE_TRANSITION = 25.0      # IU/L = mIU/ml. Modul 3 p. 29 (STRAW+10): above 25 in the late menopausal transition
 EARLY_CYCLE_DAYS = (2, 5)       # FSH, LH, E2 "baseline" draw. Modul 3 p. 29 footnote (day 2-5), p. 57 (day 3), Modul 2 p. 33 (day 2-4)
 LUTEAL_DAYS = (19, 23)          # progesterone: about day 21, 5-7 days after ovulation. Modul 2 p. 33, Modul 3 p. 57
 AMH_LOW_POSITION = 10           # AMH in the lowest 10 % of the span printed on the report counts as "low end" (our heuristic, no source value)
 ALIGN_HIGH, ALIGN_MODERATE = 4, 2   # number of agreeing signals for the level (our heuristic)
+ALIGN_HIGH_YOUNG = 3  # under 40 the age signal cannot count, so one fewer is needed, but one must be a lab signal
+LAB_SIGNALS = {"fsh_high", "e2_low", "amh_low"}
 
 LABELS = {"fsh": "FSH", "lh": "LH", "e2": "oestradiol (E2)", "progesterone": "progesterone", "amh": "AMH",
           "prolactin": "prolactin", "testosterone": "testosterone", "shbg": "SHBG", "dheas": "DHEA-S", "fai": "free androgen index",
           "androstenedione": "androstenedione", "tsh": "TSH", "ft3": "free T3", "ft4": "free T4", "tpo": "TPO antibodies",
           "ferritin": "ferritin", "hb": "haemoglobin"}
+# Reader-facing headline per analyte: full name and what the test is for (plain, neutral; matches rag_docs/lab_map.md)
+ABOUT = {"fsh": ("FSH (follicle-stimulating hormone)", "drives the ripening of eggs; rises when the ovaries respond less"),
+         "lh": ("LH (luteinising hormone)", "triggers ovulation; read together with FSH"),
+         "e2": ("oestradiol (E2)", "the main oestrogen, made by the ovaries"),
+         "progesterone": ("progesterone", "made after ovulation; shows whether ovulation took place"),
+         "amh": ("AMH (anti-Müllerian hormone)", "a marker of egg reserve: how many eggs the ovaries still hold"),
+         "prolactin": ("prolactin", "the milk hormone; high levels can disturb the cycle"),
+         "testosterone": ("testosterone", "a male-type hormone that women make in small amounts"),
+         "shbg": ("SHBG (sex hormone-binding globulin)", "a carrier protein that binds sex hormones in the blood"),
+         "dheas": ("DHEA-S", "an adrenal hormone the body turns into other sex hormones"),
+         "fai": ("free androgen index", "how much testosterone is free and active"),
+         "androstenedione": ("androstenedione", "a precursor of testosterone and oestrogen"),
+         "tsh": ("TSH (thyroid-stimulating hormone)", "the main check of thyroid function"),
+         "ft3": ("free T3", "active thyroid hormone"), "ft4": ("free T4", "thyroid hormone"),
+         "tpo": ("TPO antibodies", "a marker of an autoimmune thyroid condition"),
+         "ferritin": ("ferritin", "the body's iron store"),
+         "hb": ("haemoglobin", "the oxygen carrier in red blood cells; low with anaemia")}
 GROUP = {**{k: "sex hormones" for k in ("fsh", "lh", "e2", "progesterone", "prolactin", "testosterone", "shbg", "dheas", "fai", "androstenedione")},
          "amh": "ovarian reserve", **{k: "thyroid" for k in ("tsh", "ft3", "ft4", "tpo")}, "ferritin": "iron", "hb": "iron"}
 # lab_map card title per analyte (exact lookup), and German retrieval queries into the module chunks
@@ -93,8 +114,9 @@ def _position(r: dict) -> int | None:
     return round((r["value"] - lo) / (hi - lo) * 100)
 
 
-def summarise_labs(draws: list[dict] | None) -> dict | None:
-    """Per-draw values with flags, timing and position in the printed range; changes between the first and last draw."""
+def summarise_labs(draws: list[dict] | None, age: float | None = None) -> dict | None:
+    """Per-draw values with flags, timing, position in the printed range and (where a norm exists) position among
+    healthy women of the same age; changes between the first and last draw. `age` is used when a draw has no age."""
     if not draws:
         return None
     out_draws = []
@@ -102,7 +124,8 @@ def summarise_labs(draws: list[dict] | None) -> dict | None:
         res = []
         for r in d["results"]:
             t, note = timing(r["analyte"], d.get("cycle_day"))
-            res.append({"analyte": r["analyte"], "label": LABELS.get(r["analyte"], r["analyte"]),
+            draw_age = d.get("age_at_draw") if d.get("age_at_draw") is not None else age
+            res.append({"age_norm": age_norm(r["analyte"], r["value"], r["unit"], draw_age),"analyte": r["analyte"], "label": LABELS.get(r["analyte"], r["analyte"]),
                         "group": GROUP.get(r["analyte"], "other"), "value": r["value"], "unit": r["unit"],
                         "ref_low": r.get("ref_low"), "ref_high": r.get("ref_high"), "flag": r.get("flag"),
                         "position_pct": _position(r), "timing": t, "timing_note": note})
@@ -126,9 +149,12 @@ def summarise_labs(draws: list[dict] | None) -> dict | None:
     outside = [{"label": r["label"], "value": r["value"], "unit": r["unit"], "flag": r["flag"], "date": last["date"]}
                for r in last["results"] if r["flag"] in ("below", "above")]
     thyroid = [r["label"] for r in last["results"] if r["group"] == "thyroid" and r["flag"] in ("below", "above")]
+    low_for_age = [{"label": r["label"], "value": r["value"], "unit": r["unit"], "date": d["date"], **r["age_norm"]}
+                   for d in out_draws for r in d["results"]
+                   if (r.get("age_norm") or {}).get("position") in ("well_below", "below")]
     return {"n_draws": len(out_draws), "draws": out_draws, "latest_date": last["date"], "changes": changes,
             "thresholds": {"fsh_late_transition": FSH_LATE_TRANSITION},
-            "outside_range": outside, "thyroid_outside_range": thyroid}
+            "outside_range": outside, "thyroid_outside_range": thyroid, "low_for_age": low_for_age}
 
 
 def _latest(labs: dict, analyte: str) -> dict | None:
@@ -156,7 +182,10 @@ def align_labs(labs: dict, category: str, findings: dict, age: float | None) -> 
             if fsh["flag"] == "above" else f"FSH is at or above {FSH_LATE_TRANSITION:g}")
     if e2 and not masked and e2["flag"] == "below":
         add("e2_low", "oestradiol is below the range printed on the report")
-    if amh and (amh["flag"] == "below" or (amh["position_pct"] is not None and amh["position_pct"] <= AMH_LOW_POSITION)):
+    amh_pos = (amh or {}).get("age_norm") and amh["age_norm"]["position"]
+    if amh and amh_pos in ("well_below", "below"):
+        add("amh_low", "AMH is below the 10th percentile for the reader's age")
+    elif amh and not amh_pos and (amh["flag"] == "below" or (amh["position_pct"] is not None and amh["position_pct"] <= AMH_LOW_POSITION)):
         add("amh_low", "AMH is at the low end of the range printed on the report")
     sym = (findings.get("symptoms") or {}).get("systems", [])
     if any(s["key"] in ("temperature", "sleep", "cycle") and s["rating"] in ("moderate", "strong") for s in sym):
@@ -164,7 +193,10 @@ def align_labs(labs: dict, category: str, findings: dict, age: float | None) -> 
     if age is not None and age >= 40:
         add("age_40_plus", "age is 40 or above")
     n = len(sig)
+    young = age is not None and age < 40
+    lab_backed = bool(LAB_SIGNALS & {x["id"] for x in sig})
+    high = n >= ALIGN_HIGH or (young and n >= ALIGN_HIGH_YOUNG and lab_backed)
     labs["alignment"] = {"signals": sig, "count": n,
-                         "level": "high" if n >= ALIGN_HIGH else "moderate" if n >= ALIGN_MODERATE else "low"}
+                         "level": "high" if high else "moderate" if n >= ALIGN_MODERATE else "low"}
     labs["unreliable"] = sorted(HORMONE_AFFECTED) if masked else []
     return labs

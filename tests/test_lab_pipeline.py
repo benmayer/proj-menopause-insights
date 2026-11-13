@@ -23,7 +23,8 @@ def test_findings_and_interpret_sections_follow_labs():
     st = state(HIGH, SYM)
     assert nodes.LAB_FINDINGS_HEADING in nodes._sections(st)
     heads = nodes.interpret_headings(st)
-    assert nodes.LAB_HEADING in heads and heads.index(nodes.LAB_HEADING) == heads.index("What this may mean") - 1
+    assert heads.index(nodes.LAB_HEADING) == heads.index(nodes.CYCLE_H) + 1
+    assert heads.index(nodes.SYMPTOM_HEADING) == heads.index(nodes.LAB_HEADING) + 1 and heads[-3] == nodes.MEANING_H
     plain = state(None)
     assert nodes.LAB_FINDINGS_HEADING not in nodes._sections(plain) and nodes.LAB_HEADING not in nodes.interpret_headings(plain)
 
@@ -34,7 +35,8 @@ def test_prompts_carry_lab_rules_and_values():
     w = nodes._prompt(st)
     assert "Your lab values" in w[0]["content"] and '"fsh"' in w[1]["content"]
     i = nodes._interpret_prompt(st)
-    assert "READER LABS" in i[1]["content"] and "never say a value 'is low'" in i[0]["content"]
+    assert "READER LABS" in i[1]["content"] and "LABS BRIEF" in i[1]["content"] and "EXPLANATIONS" in i[1]["content"]
+    assert "Say a value is low or high only when the data shows it" in i[0]["content"]
     assert "READER LABS" not in nodes._interpret_prompt({**state(None), "context": [], "report": "x\n---\n"})[1]["content"]
 
 
@@ -62,11 +64,14 @@ def test_retrieve_adds_lab_cards_and_lab_chunks(monkeypatch):
 LABCTX = [{"section": "knowledge", "title": "Modul 3, S. 29 (#1)", "content": "FSH above 25"},
           {"section": "lab_map", "title": "FSH (follicle-stimulating hormone)", "content": "range 3.0 to 15.0"},
           {"section": "reference", "title": "r", "content": "21 to 35 days"}]
-GOODLAB = ("# Your cycle report\n## What we found\nYour data shows 26 cycles.\n"
-           "## What your blood test may show\n"
-           "Your FSH was 30 mIU/ml, above the range printed on your report; the material says FSH rises in the transition. [S1]\n"
-           "Your haemoglobin was 11.5 g/dl, below the printed range. [S2]\n"
-           "## What this may mean\nChanges can have many causes and only a doctor can tell. [S1]\n"
+GOODLAB = ("# Your cycle report\n## Summary\nYour data shows 26 cycles.\n"
+           "## Your cycle\nYour recent average is 39.0 days, longer than typical. [S1]\n"
+           "## Your blood results\n"
+           "- Your FSH (follicle-stimulating hormone) was 30 mIU/ml, above the lab's range. FSH rises in the transition. [S1]\n"
+           "- Your oestradiol (E2) is below the lab's range.\n"
+           "- Your AMH (anti-Müllerian hormone) is below the lab's range.\n"
+           "- Your haemoglobin was 11.5 g/dl, below the lab's range.\n"
+           "## What it could mean together\nChanges can have many causes and a doctor can check them. [S1]\n"
            "## Things that may help\nSome people find sleep routines help. [S1]\n"
            "## Talking to your doctor\nBring these results to your doctor. [S1]")
 
@@ -82,10 +87,20 @@ def test_guard_accepts_clean_lab_report_and_does_not_treat_lab_values_as_doses()
 
 def test_guard_lab_section_required_cited_and_wording():
     st = state(HIGH)
-    assert any("missing section" in e for e in _g(GOODLAB.replace("## What your blood test may show", "## Blood"), st))
-    unc = GOODLAB.replace(" [S2]\n##", "\n##", 1)
-    assert any("uncited" in e for e in _g(unc, st))
-    assert any("hormone levels" in e for e in _g(GOODLAB.replace("Your FSH was 30", "Your FSH is high at 30"), st))
+    assert any("missing section" in e for e in _g(GOODLAB.replace("## Your blood results", "## Blood"), st))
+    assert any("must name 'haemoglobin'" in e for e in _g(GOODLAB.replace("Your haemoglobin", "Your Hb"), st))
+    assert any("bullets" in e for e in _g(GOODLAB.replace("- Your haemoglobin", "- Your TSH is in range.\n- Your haemoglobin"), st))
+    assert any("internal term" in e for e in _g(GOODLAB.replace("Bring these", "This remains untested. Bring these"), st))
+    assert any("never 'printed'" in e for e in _g(GOODLAB.replace("above the lab's range", "above the printed range"), st))
+    unc = GOODLAB.replace("FSH rises in the transition. [S1]", "FSH rises in the transition.")
+    assert any("cites no source" in e for e in _g(unc, st))
+    unc_help = GOODLAB.replace("sleep routines help. [S1]", "sleep routines help.")
+    assert any("uncited" in e for e in _g(unc_help, st))
+    # low/high claims are allowed when code backs them (FSH above range, E2 below), not otherwise
+    assert _g(GOODLAB.replace("Your FSH was 30", "Your FSH is high at 30"), st) == []
+    assert _g(GOODLAB.replace("Your data shows", "Your oestradiol is low. Your data shows"), st) == []
+    assert any("hormone levels" in e for e in _g(GOODLAB.replace("Your data shows", "Your TSH is high. Your data shows"), st))
+    assert any("speak as the coach" in e for e in _g(GOODLAB.replace("FSH rises", "The material says FSH rises"), st))
     assert any("cannot confirm" in e for e in _g(GOODLAB.replace("Bring these", "This test confirms it. Bring these"), st))
     assert any("labelling" in e for e in _g(GOODLAB.replace("Bring these", "You are entering menopause. Bring these"), st))
 
@@ -102,7 +117,7 @@ def test_age_is_soft_for_young_readers_only_with_high_alignment_and_a_doctor():
 
 
 def test_interpret_adds_fixed_lab_safety_lines(monkeypatch):
-    monkeypatch.setattr(nodes, "_llm", lambda m: "# Your cycle report\n## What we found\nok")
+    monkeypatch.setattr(nodes, "_llm", lambda m: "# Your cycle report\n## Summary\nok")
     thyroid = state([draw("2025-04-03", 3, tsh=6.0)], None)
     thyroid["context"], thyroid["report"] = [], "# F\n---\n"
     out = nodes.interpret(thyroid)["human_report"]
@@ -131,4 +146,4 @@ def test_early_for_your_age_is_blocked_for_readers_40_and_over():
 
 def test_lab_rules_depend_on_age_and_ask_for_comparable_changes():
     assert "NEVER say anything would be 'early'" in nodes.lab_rules(False) and "under 40" not in nodes.lab_rules(False)
-    assert "early menopause" in nodes.lab_rules(True) and "comparable true" in nodes.lab_rules(False)
+    assert "early menopause" in nodes.lab_rules(True) and "LABS BRIEF changes" in nodes.lab_rules(False)

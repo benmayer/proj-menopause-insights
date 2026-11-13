@@ -5,9 +5,13 @@ Deadline: **Fri 13 Nov 2026, 11:00** (Day 5 is only until 11:00).
 
 ## STATUS (update before ending every session)
 
+- **Decision 12 Nov:** Phases 11 (prediction model) and 12 (wearables) DROPPED, reasons in those sections. Today's focus: refine the report, then deploy/README/GTM/demo.
 - **Current phase:** Streamlit UI built (`ui/app.py`, demo/upload, age, report, chart, findings, email button; email NOT yet send-tested). Next: symptom input + symptom cards, send test, deploy. Deadline Fri 13 Nov 11:00
 - **Last completed:** Phase 0 (skeleton, conda env, `requirements.txt`, `.env.example`); Phase 1 (`stack_decision.md`, Kaggle datasets chosen and explored, workflow sketch in README, synthetic generator added to Phase 2). Phase 5 (LangGraph skeleton: state, 5 stub nodes, router, graph, 4 tests); Phase 4 (pgvector + `documents` table + RLS, 8 rag_docs, ingest/retrieve, 5 live tests); Phase 3 (stats.py, FastAPI /health /upload /users /cycles /stats, store.py, 13 tests); Phase 2 (key tests for OpenAI/Supabase/Resend, normaliser, synthetic generator, demo CSVs in `samples/`). Earlier: repo created, drafts written (`docs/PROJECT_DRAFT.md`, `docs/plans/gtm_future_sprints.md`), CLAUDE.md + README + this plan. Decisions: vector store = **Supabase (pgvector)**, not Pinecone; **stretch** = own prediction model (Phase 11), wearables (Phase 12)
 - **Findings and improvement plan:** `docs/findings_and_improvements.md`
+- **12 Nov (report rework):** report restructured after Ben's feedback (combined summary, coach voice, age norms for AMH, cross-source explanations in `app/agent/explain.py`, notes block). 108 tests. Synthetic persona reports in `samples/persona_*.md`. Ben: rerun the full demo (real data, local only) in the UI and review
+- **12 Nov (round 2):** reader view via `nodes.reader_report()` (no [S#] tags; groups "What we found" / "Conclusion"); sources, checks and retries in a new UI "Quality" tab (warning banner moved there); blood results as headline blocks (`labs.ABOUT`); cycle leads the conclusion; one timing note; "printed" banned; AGE NORM RULE. 111 tests, 4 personas pass. Restart Streamlit after changes in `app/` (it does not hot-reload them)
+- **12 Nov (round 3, stopped here):** blood results back to bullets with full names (code writes the "other values" lines), plainer conclusion, guards for repeated values and internal terms. 111 tests pass; personas NOT rerun since. Summary for the presentation: `docs/report_improvements.md`. Next: rerun personas, then deploy/README/GTM/demo
 - **Next action:** blood test feature DONE (see `docs/plans/blood_test_plan.md`, 92 tests). Ben: review `app/agent/labs.py` thresholds, `rag_docs/lab_map.md`, image transcripts, and supply anonymised lab PDFs + Clue data for the demo persona. Then: deploy (Render + Streamlit Cloud), README (file map, env vars, 3+ APIs), GTM file to repo root, demo video. Resend works. Advanced form only if time
 - **Env:** conda env `ironhack` (Py 3.12), not venv. Env var names follow `.env`: `SUPABASE_PROJECT_URL`, `SUPABASE_API_KEY` (verify it is the service/secret key in Phase 2), `SUPABASE_DB_PASSWORD`
 - **Decisions:** Google Sheets dropped; data enters via CSV upload. MVP holds uploads in memory only (`app/api/store.py`, swappable for Supabase later). Persistence, accounts, consent/GDPR = first GTM sprint
@@ -127,7 +131,9 @@ Proposal in `docs/agent_extensions.md`: case triage node, red-flag check, guardr
 
 ---
 
-## Phase 11 — STRETCH: own prediction model (only if core is done)
+## Phase 11 — DROPPED: own prediction model
+**Decision (12 Nov 2026):** not built. Only synthetic/limited data is available, so a trained model would not generalise to real life and would not improve the demo. Documented as roadmap in the GTM file.
+(Original plan kept below for reference.)
 Gate: Phase 6 finished by Wed and Kaggle data has enough users/cycles per user. Never delay Phases 7–10 for this.
 - [ ] Pick one narrow target, e.g. next cycle length, or "irregular next cycle" (binary)
 - [ ] Features: last N cycle lengths, rolling mean/SD, age if available. Split by **user**, not by row, to avoid leakage
@@ -137,7 +143,9 @@ Gate: Phase 6 finished by Wed and Kaggle data has enough users/cycles per user. 
 - [ ] Report the honest result: if it doesn't beat the baseline, say so (still a valid finding)
 - **Exit:** metric vs baseline documented in README
 
-## Phase 12 — STRETCH: wearable data (Apple Health, Fitbit)
+## Phase 12 — DROPPED: wearable data (Apple Health, Fitbit)
+**Decision (12 Nov 2026):** not built. No good wearable data available, so an integration would be for its own sake and not improve the demo. Documented as roadmap in the GTM file.
+(Original plan kept below for reference.)
 Gate: core done (Phase 10). Local only; never in the public demo (health data).
 - [ ] **Verify current API status first** (Context7/vendor docs): Fitbit Web API endpoints and auth; Google Fit REST is being retired in favour of Health Connect. Pick what still works
 - [ ] Apple Health: Streamlit upload of the export ZIP, parse `export.xml` (cycle, sleep, heart rate, temperature if present) in `app/ingest/apple_health.py`

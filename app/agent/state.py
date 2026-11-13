@@ -16,6 +16,7 @@ class AgentState(TypedDict, total=False):
     report: str          # Write: verified findings report (facts only)
     human_report: str    # Interpret: reader-facing report with meaning + advice, cited
     sources: dict        # Interpret: tag -> citation, e.g. S1 -> 'Modul 3 ..., S. 19'
+    used_sources: dict   # Interpret: the tags the report cites (shown in the UI's Quality tab, not in the report)
     guard_errors: list[str]  # Guardrail problems with the interpretation
     i_retries: int       # Guardrail failures so far
     passed: bool         # Check: did every number match the stats?

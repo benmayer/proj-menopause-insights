@@ -88,8 +88,9 @@ def test_guard_router():
 # --- Guardrail on the human report --------------------------------------------
 CTX = [{"section": "knowledge", "title": "Modul 3, S. 19 (#29)", "content": "x"},
        {"section": "reference", "title": "r", "content": "shorter than 21 days"}]
-GOOD = ("# Your cycle report\n## What we found\nYour data shows 6 cycles.\n"
-        "## What this may mean\nCycles can change in the transition. [S1]\n"
+GOOD = ("# Your cycle report\n## Summary\nYour data shows 6 cycles.\n"
+        "## Your cycle\nYour cycles vary more than typical cycles do. [S1]\n"
+        "## What it could mean together\nCycles can change in the transition. [S1]\n"
         "## Things that may help\nTracking cycles can help. [S1]\n"
         "## Talking to your doctor\nHormone therapy can be an option to discuss with a GP.\n")
 
@@ -201,17 +202,19 @@ def test_interpret_adds_fixed_red_flag_text_and_symptom_section(monkeypatch):
     st = _state({"symptoms": {"heart": 3}})
     st["findings"] = nodes.triage(st)["findings"]
     st["context"], st["report"] = [], "# Findings\n---\n"
-    monkeypatch.setattr(nodes, "_llm", lambda m: "# Your cycle report\n## What we found\nok")
+    monkeypatch.setattr(nodes, "_llm", lambda m: "# Your cycle report\n## Summary\nok")
     out = nodes.interpret(st)["human_report"]
     assert "Worth acting on soon" in out and nodes.RED_FLAG_TEXT["heart"] in out
-    assert nodes.interpret_headings(st)[1] == nodes.SYMPTOM_HEADING
+    assert "How to read this report" in out and out.rstrip().endswith(f"*{nodes.DISCLAIMER}*")
+    heads = nodes.interpret_headings(st)
+    assert heads[:2] == [nodes.SUMMARY_H, nodes.CYCLE_H] and heads[2] == nodes.SYMPTOM_HEADING
 
 
 SYM_CTX = [{"section": "symptom_map", "title": "Sleep regulation", "content": "x"},
            {"section": "reference", "title": "r", "content": "shorter than 21 days"}]
-SYM_GOOD = GOOD.replace("## What this may mean", "## What your symptoms may point to\n"
-                        "The table lists progesterone deficiency as a possible factor for sleep trouble. [S1]\n"
-                        "## What this may mean")
+SYM_GOOD = GOOD.replace("## What it could mean together", "## Your symptoms\n"
+                        "You report sleep symptoms, rated moderate.\n"
+                        "## What it could mean together")
 
 
 def _sym_state(flags=True):
@@ -219,17 +222,27 @@ def _sym_state(flags=True):
                                          "symptoms": {"systems": [{"key": "sleep"}]}}, "context": SYM_CTX}
 
 
-def test_guard_symptom_section_required_and_cited():
+def test_guard_symptom_section_required():
     st = _sym_state()
     assert nodes.guard_report(SYM_GOOD, st) == []
     assert any("missing section" in e for e in nodes.guard_report(GOOD, st))
-    uncited = SYM_GOOD.replace(" [S1]\n## What this", "\n## What this", 1)
-    assert any("uncited" in e for e in nodes.guard_report(uncited, st))
+
+
+@pytest.mark.parametrize("phrase", ["The table lists progesterone deficiency as a factor.", "The material says sleep matters.",
+                                    "According to the source, cycles vary.", "The coaching material suggests rest."])
+def test_guard_blocks_talk_about_the_material(phrase):
+    bad = SYM_GOOD.replace("You report sleep symptoms", phrase + " You report sleep symptoms")
+    assert any("speak as the coach" in e for e in nodes.guard_report(bad, _sym_state()))
+
+
+def test_guard_needs_a_tag_in_the_cycle_section():
+    bad = GOOD.replace("typical cycles do. [S1]", "typical cycles do.")
+    assert any("cites no source" in e for e in nodes.guard_report(bad, _sym_state()))
 
 
 def test_guard_blocks_claims_about_own_hormone_levels():
     st = _sym_state()
-    bad = SYM_GOOD.replace("The table lists progesterone deficiency", "Your progesterone is low. The table lists progesterone deficiency")
+    bad = SYM_GOOD.replace("You report sleep symptoms", "Your progesterone is low. You report sleep symptoms")
     assert any("hormone levels" in e for e in nodes.guard_report(bad, st))
 
 

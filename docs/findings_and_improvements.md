@@ -57,3 +57,23 @@ Keep the guardrail checks as tests (`tests/test_graph.py`).
 - **Result:** persona reports (`samples/persona_*.md`) now reflect the reader's words and symptoms; pill user gets a "cycle data is artificial" note instead of a trend.
 - **Known limits:** guardrail checks that a citation exists and is present, not that the cited source supports the sentence (e.g. a cooling-down tip cited to the symptom table);
   next candidate is an LLM-judge claim-support check. Advice quality is bounded by what the chunks contain; symptom cards are lookups, not curated advice.
+
+## Update 12 Nov: report rework after Ben's review of the full demo report (`samples/Report Feedback.md`)
+Feedback: hard to follow, each source treated separately, "the material says" voice, disclaimers in every sentence,
+no comparison with typical values, a very low AMH for a reader in her early 30s shown only as "within range", irrelevant thyroid caveat.
+Almost all of it came from our own prompt and guardrail, not from missing data or graph shape.
+
+| Change | Where |
+|---|---|
+| New outline: Summary (combined) → Your cycle → Your blood results → Your symptoms → What it could mean together → Things that may help → Talking to your doctor; fixed "How to read this report" notes once at the end | `nodes.interpret_headings`, `nodes.notes_block` |
+| Coach voice: sources are the agent's own knowledge, cited by tag; "the material/table says" is a guardrail error | `_interpret_prompt`, `BANNED`, `rag_docs/instr_interpret.md`, `tone_and_disclaimer.md` (re-ingested) |
+| Citations per paragraph in the conclusion and advice, at least one per cycle/blood section; no tags needed in summary/doctor | `guard_report` |
+| Cycle compared with typical cycles (21-35 days, few days' variation, share of 7-day jumps), computed in code | `nodes.compare_cycles` |
+| Age norms for lab values whose printed range ignores age (AMH now): Ji et al. 2022, Ann Lab Med, healthy women, per-year percentiles, smoothed ±2 years. Code writes the comparison sentence; the LLM copies it | `app/agent/age_norms.py` |
+| Cross-source explanations in code: each candidate (ovarian/transition, thyroid, iron, prolactin, androgens, progesterone) is supported / contradicted / untested by the blood results, with relevance from cycle + symptoms. Contradicted ones are dropped unless they were the only strong lead; at most 2 untested ones become "worth testing". Retrieval adds advice chunks for them | `app/agent/explain.py`, `nodes.triage`, `nodes.retrieve` |
+| Claims "your X is low/high" and "low for your age" are allowed only when code backs them (printed range or age norm) | `supported_claims`, `_hormone_claim_errors` |
+| Under-40 alignment: "high" at 3 signals if one is a lab signal (the age signal cannot count) | `labs.align_labs` |
+
+Lessons: the model reads "below the lab range" as "low for your age" and will invent percentile bands; only a
+code-written phrase plus a specific guard message fixed it. LLM interpretation stays in words, judgement on
+values stays in code. Sample reports (synthetic): `samples/persona_*.md`.

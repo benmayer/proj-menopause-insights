@@ -1,0 +1,14 @@
+[
+ {"draw_date": "2023-02-14", "cycle_day": null, "age_at_draw": 29, "age_today": 32, "results": [
+  {"analyte": "e2", "value": 52.1, "unit": "pg/ml", "ref_low": 20.0, "ref_high": 3000.0, "flag": "within"},
+  {"analyte": "prolactin", "value": 3.9, "unit": "ng/ml", "ref_low": 4.79, "ref_high": 23.3, "flag": "below"},
+  {"analyte": "hb", "value": 11.4, "unit": "g/dl", "ref_low": 12.0, "ref_high": 16.0, "flag": "below"},
+  {"analyte": "tsh", "value": 1.1, "unit": "µIU/ml", "ref_low": 0.27, "ref_high": 4.2, "flag": "within"}]},
+ {"draw_date": "2025-06-17", "cycle_day": 8, "age_at_draw": 31, "age_today": 32, "results": [
+  {"analyte": "lh", "value": 2.2, "unit": "mIU/ml", "ref_low": 2.4, "ref_high": 12.6, "flag": "below"},
+  {"analyte": "fsh", "value": 9.8, "unit": "mIU/ml", "ref_low": 3.5, "ref_high": 12.5, "flag": "within"},
+  {"analyte": "amh", "value": 0.42, "unit": "ng/ml", "ref_low": 0.17, "ref_high": 7.37, "flag": "within"},
+  {"analyte": "tsh", "value": 0.85, "unit": "µIU/ml", "ref_low": 0.27, "ref_high": 4.2, "flag": "within"},
+  {"analyte": "prolactin", "value": 4.1, "unit": "ng/ml", "ref_low": 4.79, "ref_high": 23.3, "flag": "below"},
+  {"analyte": "hb", "value": 11.6, "unit": "g/dl", "ref_low": 12.0, "ref_high": 16.0, "flag": "below"}]}
+]

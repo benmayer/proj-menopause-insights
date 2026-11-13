@@ -119,5 +119,39 @@ def full():
     fig.savefig(OUT / "graph_full.png", dpi=200, bbox_inches="tight", facecolor="white")
 
 
+def final():
+    fig, ax = canvas(21.4, 6.6, "Agent graph: final architecture",
+                     "Eight nodes, two verify loops. Two LLM steps (write, interpret); everything that decides or checks is plain code.")
+    y = 3.1
+    X = dict(up=0.9, fetch=2.9, analyse=4.9, triage=6.9, retr=8.9, write=10.9, check=12.9, interp=14.9, guard=16.9, rep=19.1)
+    box(ax, X["up"], y, "Upload", "io", "CSV + optional lab PDF\n+ symptom form + age", w=1.5)
+    box(ax, X["fetch"], y, "Fetch", "code", "FastAPI /stats, /labs\n(aggregates only)", w=1.6)
+    box(ax, X["analyse"], y, "Analyse", "code", "flag rules, case tags,\nsymptom + lab summary", w=1.6)
+    box(ax, X["triage"], y, "Triage", "code", "context category,\nlab alignment,\nsupported explanations", w=1.6)
+    box(ax, X["retr"], y, "Retrieve", "data", "RAG: ranges, tone,\ncoaching, symptom,\nlab + age-norm cards", w=1.6)
+    box(ax, X["write"], y, "Write", "llm", "findings draft,\nfacts only", w=1.6)
+    box(ax, X["check"], y, "Check", "code", "every number and\ndate in the data?", w=1.6)
+    box(ax, X["interp"], y, "Interpret", "llm", "reader report with\ncited advice; code adds\nsafety text + notes", w=1.6)
+    box(ax, X["guard"], y, "Guardrail", "code", "citations, no diagnosis\nor doses, wording rules", w=1.6)
+    box(ax, X["rep"], y, "Report", "io", "tags stripped;\nUI tabs + email", w=1.4)
+    chain = ["up", "fetch", "analyse", "triage", "retr", "write", "check", "interp", "guard", "rep"]
+    hw = {"up": .75, "rep": .7}
+    for a, b in zip(chain, chain[1:]):
+        ok = a in ("check", "guard")
+        arrow(ax, (X[a] + hw.get(a, .8), y), (X[b] - hw.get(b, .8), y), color="#2E8B72" if ok else "#444")
+    ax.text((X["check"] + X["interp"]) / 2, y + 0.22, "ok", fontsize=9.5, color="#2E8B72", style="italic", ha="center")
+    ax.text((X["guard"] + X["rep"]) / 2, y + 0.22, "ok", fontsize=9.5, color="#2E8B72", style="italic", ha="center")
+    route(ax, [(X["check"], y + .42), (X["check"], y + 1.0), (X["write"], y + 1.0), (X["write"], y + .42)], color="#C0392B",
+          label="numbers wrong: back to Write\n(max 2 retries)", lxy=((X["check"] + X["write"]) / 2, y + 1.38))
+    route(ax, [(X["guard"], y + .42), (X["guard"], y + 1.0), (X["interp"], y + 1.0), (X["interp"], y + .42)], color="#C0392B",
+          label="rule broken: back to Interpret\n(max 2 retries, then flagged)", lxy=((X["guard"] + X["interp"]) / 2, y + 1.38))
+    box(ax, X["fetch"], y + 1.5, "Data API", "data", w=1.5, h=0.6)
+    route(ax, [(X["fetch"], y + 1.2), (X["fetch"], y + .42)], color="#2E8B72", ls="--")
+    box(ax, X["retr"], y + 1.5, "Supabase pgvector", "data", w=2.5, h=0.6)
+    route(ax, [(X["retr"], y + 1.2), (X["retr"], y + .42)], color="#2E8B72", ls="--")
+    legend(ax, 0.3, 0.05)
+    fig.savefig(OUT / "graph_final.png", dpi=200, bbox_inches="tight", facecolor="white")
+
+
 if __name__ == "__main__":
-    minimal(); full(); print("wrote", sorted(p.name for p in OUT.glob("*.png")))
+    minimal(); full(); final(); print("wrote", sorted(p.name for p in OUT.glob("*.png")))

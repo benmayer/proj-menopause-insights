@@ -91,6 +91,40 @@ def run_report(dataset_id, user_id, age, intake, labs_id=None):
 if step == "input" or not st.session_state.get("result"):
     st.header("Step 1 of 2: your data and symptoms")
 
+    st.subheader("Your data")
+    mode = st.radio("Source", ["Demo data", "Upload my file"], horizontal=True)
+    dataset_id = None
+    if mode == "Demo data":
+        dataset_id = st.selectbox("Demo dataset", api("GET", "/demos")["datasets"])
+        st.caption("Public demo data only (Kaggle or synthetic).")
+    else:
+        up = st.file_uploader("CSV or JSON (Clue measurements.json works)", type=["csv", "json"])
+        st.caption("Held in memory for about 1 hour, never written to disk or a database.")
+        if up is not None:
+            key = f"{up.name}-{up.size}"
+            if st.session_state.get("upload_key") != key:
+                try:
+                    with client_factory()() as c:
+                        r = c.post("/upload", files={"file": (up.name, up.getvalue())})
+                    r.raise_for_status()
+                    st.session_state.update(upload_key=key, upload=r.json())
+                except Exception as e:
+                    st.session_state.pop("upload", None)
+                    detail = getattr(getattr(e, "response", None), "text", str(e))
+                    st.error(f"Could not read the file: {detail[:300]}")
+            if st.session_state.get("upload"):
+                dataset_id = st.session_state["upload"]["dataset_id"]
+                st.success(f"{st.session_state['upload']['n_rows']} rows read")
+
+    user_id = None
+    if dataset_id:
+        users = api("GET", "/users", params={"dataset_id": dataset_id})["users"]
+        if len(users) > 1:
+            user_id = st.selectbox("Person", users)
+        elif users:
+            user_id = users[0]
+
+
     st.subheader("Blood tests (optional)")
     st.caption("Upload lab reports as PDF (text PDFs, not scans). Values are read in code: your name, address and date of "
                "birth are not kept or sent. The values are sent to OpenAI to write the report. Nothing is stored.")
@@ -125,39 +159,6 @@ if step == "input" or not st.session_state.get("result"):
             df = pd.DataFrame(d["results"])[["analyte", "value", "unit", "ref_low", "ref_high", "flag"]]
             edited[d["draw_date"]] = (cd, st.data_editor(df, key=f"ed_{k}", hide_index=True, num_rows="fixed",
                                                          disabled=["analyte", "flag"], use_container_width=True))
-
-    st.subheader("Your data")
-    mode = st.radio("Source", ["Demo data", "Upload my file"], horizontal=True)
-    dataset_id = None
-    if mode == "Demo data":
-        dataset_id = st.selectbox("Demo dataset", api("GET", "/demos")["datasets"])
-        st.caption("Public demo data only (Kaggle or synthetic).")
-    else:
-        up = st.file_uploader("CSV or JSON (Clue measurements.json works)", type=["csv", "json"])
-        st.caption("Held in memory for about 1 hour, never written to disk or a database.")
-        if up is not None:
-            key = f"{up.name}-{up.size}"
-            if st.session_state.get("upload_key") != key:
-                try:
-                    with client_factory()() as c:
-                        r = c.post("/upload", files={"file": (up.name, up.getvalue())})
-                    r.raise_for_status()
-                    st.session_state.update(upload_key=key, upload=r.json())
-                except Exception as e:
-                    st.session_state.pop("upload", None)
-                    detail = getattr(getattr(e, "response", None), "text", str(e))
-                    st.error(f"Could not read the file: {detail[:300]}")
-            if st.session_state.get("upload"):
-                dataset_id = st.session_state["upload"]["dataset_id"]
-                st.success(f"{st.session_state['upload']['n_rows']} rows read")
-
-    user_id = None
-    if dataset_id:
-        users = api("GET", "/users", params={"dataset_id": dataset_id})["users"]
-        if len(users) > 1:
-            user_id = st.selectbox("Person", users)
-        elif users:
-            user_id = users[0]
 
     st.subheader("About you (optional)")
     c1, c2, c3 = st.columns(3)
@@ -224,9 +225,7 @@ if st.button("← Start over"):
     st.rerun()
 
 out, cycles = res["out"], res["cycles"]
-if not out.get("passed") or out.get("guard_errors"):
-    st.warning("This report did not fully pass our automatic checks: "
-               + "; ".join(out.get("check_errors", []) + out.get("guard_errors", [])))
+report_md = nodes.reader_report(out["human_report"])  # no citation tags; sources go to the Quality tab
 
 def show_chart():
     st.pyplot(cycle_chart(cycles, out["stats"].get("events", [])))
@@ -234,20 +233,21 @@ def show_chart():
 
 
 def report_with_chart(md: str):
-    """Render the report with the cycle chart right after the first section ("What we found")."""
-    parts = re.split(r"(?m)^(?=## )", md, maxsplit=2)  # [title, first section, rest]
+    """Render the report with the cycle chart right after the "Your cycle" section (else after the first section)."""
+    parts = re.split(r"(?m)^(?=##+ )", md)  # [title, section, section, ...]
     if len(parts) < 3:
         st.markdown(md)
         return show_chart()
-    st.markdown(parts[0] + parts[1])
+    at = next((i for i, p in enumerate(parts) if re.match(r"##+ Your cycle", p)), 1)
+    st.markdown("".join(parts[:at + 1]))
     show_chart()
-    st.markdown(parts[2])
+    st.markdown("".join(parts[at + 1:]))
 
 
-tab_report, tab_findings = st.tabs(["Your report", "Verified findings"])
+tab_report, tab_findings, tab_quality = st.tabs(["Your report", "Verified findings", "Quality"])
 with tab_report:
-    report_with_chart(out["human_report"])
-    st.download_button("Download report (.md)", out["human_report"], file_name="cycle_report.md")
+    report_with_chart(report_md)
+    st.download_button("Download report (.md)", report_md, file_name="cycle_report.md")
     st.divider()
     st.subheader("Email this report")
     sent = st.session_state.get("emails_sent", 0)
@@ -255,7 +255,7 @@ with tab_report:
     if st.button("Send email", disabled=not to or sent >= MAX_EMAILS):
         try:
             from app.email import send_report
-            send_report(to, out["human_report"])
+            send_report(to, report_md)
             st.session_state["emails_sent"] = sent + 1
             st.success("Sent. The address is not stored.")
         except Exception as e:
@@ -270,5 +270,28 @@ with tab_findings:
             st.write(f"Level: **{al['level']}** ({al['count']} signals)")
             for sg in al["signals"]:
                 st.write(f"- {sg['text']}")
+    ex = [x for x in ((out.get("findings") or {}).get("explanations") or [])]
+    if ex:
+        with st.expander("Possible explanations checked against your data (computed, not a diagnosis)"):
+            for x in ex:
+                ev = "; ".join(e["text"] for e in x["supporting"] + x["contradicting"]) or "not measured"
+                st.write(f"- **{x['status']}**: {x['label']} ({ev})")
     with st.expander("Raw computed stats"):
         st.json(out["stats"])
+with tab_quality:
+    problems = out.get("check_errors", []) + out.get("guard_errors", [])
+    if out.get("passed") and not out.get("guard_errors"):
+        st.success("All automatic checks passed (numbers, dates, sources, wording).")
+    else:
+        st.warning("Some automatic checks did not pass after retries:")
+        for p in problems:
+            st.write(f"- {p}")
+    st.caption(f"Retries: findings check {out.get('retries', 0)}, report guardrail {out.get('i_retries', 0)}")
+    used = out.get("used_sources") or {}
+    if used:
+        st.subheader("Sources behind the report")
+        st.caption("The coaching material and reference data each statement was checked against.")
+        for t, c in used.items():
+            st.write(f"- [{t}] {c}")
+    with st.expander("Report with source tags"):
+        st.markdown(out["human_report"])

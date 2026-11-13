@@ -48,7 +48,9 @@ def main(argv=None) -> int:
         labs_id = lab_store.put(json.loads(Path(a.labs_json).read_text()))
     out = build_graph().invoke({"dataset_id": a.dataset, "user_id": a.user, "age": a.age, "intake": intake,
                                 "labs_id": labs_id})
-    findings, human = out["report"], out["human_report"]
+    findings, human = out["report"], nodes.reader_report(out["human_report"])
+    if out.get("used_sources"):  # the reader view has no tags; keep the sources next to the findings
+        findings += "\n\n**Sources behind the report**\n" + "\n".join(f"- [{t}] {c}" for t, c in out["used_sources"].items())
     if not out.get("passed"):
         findings = ("> **Verification failed after retries.** Unverified: " + "; ".join(out["check_errors"])
                     + "\n\n" + findings)

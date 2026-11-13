@@ -228,6 +228,7 @@ __marimo__/
 # Project: private health data
 # everything under data/: raw uploads, Clue export, lab PDFs, persona reports made from real data
 data/
+samples/private/*
 
 # Licensed source PDFs for RAG (not redistributed)
 rag_pdfs/
