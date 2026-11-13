@@ -122,12 +122,12 @@ def test_guard_blocks_cycle_claims_when_cycle_is_masked():
 
 def test_reader_report_strips_tags_and_groups_sections():
     md = ("# Your cycle report\n## Summary\nAll fine.\n## Your cycle\nLonger cycles. [S1][S2]\n"
-          "## Your blood results\nAMH is low [S3].\n## What it could mean together\nIt fits. [S1]\n"
+          "## Your blood results\nAMH is low [S3].\n## What it could mean\nIt fits. [S1]\n"
           "## Talking to your doctor\n- Bring it.\n## Things that may help\n- Sleep. [S4]\n")
     out = nodes.reader_report(md)
     assert "[S" not in out and "low." in out and "Longer cycles.\n" in out
     assert out.index("## What we found") < out.index("### Your cycle") < out.index("### Your blood results")
-    assert out.index("## Conclusion") < out.index("### What it could mean together") < out.index("### Talking to your doctor")
+    assert out.index("## Conclusion") < out.index("### What it could mean") < out.index("### Talking to your doctor")
     assert "## Summary" in out and "### Summary" not in out
 
 

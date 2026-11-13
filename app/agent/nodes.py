@@ -29,7 +29,7 @@ SECTIONS = [("Summary", "summary"), ("Cycle length trend", "trend"), ("Variabili
             ("Worth discussing with a doctor", "flags"), ("Caveats", "caveats")]
 CYCLE_SECTIONS = {"Cycle length trend", "Variability", "Patterns", "Notable cycles", "Worth discussing with a doctor"}
 # Reader-facing report (Interpret): combined summary, then each data source with its meaning, then the conclusion.
-SUMMARY_H, CYCLE_H, MEANING_H, HELP_H, DOCTOR_H = ("Summary", "Your cycle", "What it could mean together",
+SUMMARY_H, CYCLE_H, MEANING_H, HELP_H, DOCTOR_H = ("Summary", "Your cycle", "What it could mean",
                                                     "Things that may help", "Talking to your doctor")
 SYMPTOM_HEADING = "Your symptoms"
 FOUND_H, CONCLUSION_H = "What we found", "Conclusion"  # group headings, added by code in reader_report()
@@ -761,6 +761,7 @@ def reader_report(md: str) -> str:
     """What the reader sees: no [S#] tags, sections grouped under 'What we found' and 'Conclusion'."""
     md = re.sub(r"[ \t]*(\[S\d+\])+", "", md)
     md = re.sub(r" +([.,;:])", r"\1", md)
+    md = re.sub(r"(?m)^# Your cycle report\s*$", "# Your Menohelp Cycle Report", md, count=1)
     out = []
     for line in md.split("\n"):
         m = re.match(r"## (.+)$", line)

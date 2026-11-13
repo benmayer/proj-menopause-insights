@@ -72,6 +72,21 @@ if os.getenv("APP_PASSWORD") and not st.session_state.get("ok"):
         st.rerun()
     st.stop()
 
+st.markdown("""<style>  /* report look, same as the email */
+[data-testid="stMarkdownContainer"] h1 {color:#2c3e50; font-weight:700}
+[data-testid="stMarkdownContainer"] h2 {color:#8e44ad; font-weight:600}
+[data-testid="stMarkdownContainer"] h3 {color:#2c3e50; font-weight:600}
+[data-testid="stMarkdownContainer"] em {color:#6b7785}
+.loading-overlay {position:fixed; inset:0; z-index:999999; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:18px; background:rgba(242,244,246,.92); backdrop-filter:blur(3px); color:#2c3e50;
+  font-size:1.1rem; text-align:center; padding:0 24px}
+.loading-overlay .ttl {font-size:1.5rem; font-weight:700; color:#8e44ad}
+.loading-overlay .note {font-size:.85rem; color:#6b7785}
+.loading-overlay .ring {width:48px; height:48px; border:5px solid #e3d5ec; border-top-color:#8e44ad;
+  border-radius:50%; animation:spin 0.9s linear infinite}
+@keyframes spin {to {transform:rotate(360deg)}}
+.block-container {background:#fff; border-radius:8px; padding:2rem 2.5rem; margin-top:1.5rem}
+</style>""", unsafe_allow_html=True)
 st.title("🌿 Menohelp")
 st.caption("Upload your cycle data and get a plain-language report. Not medical advice.")
 
@@ -79,25 +94,46 @@ RATING = {0: "none", 1: "mild", 2: "moderate", 3: "strong"}
 step = st.session_state.get("step", "input")
 
 
+# Four user-facing stages (not one per node). Key = node that just finished -> message for what comes next.
+ANALYSING, PATTERNS = "Analysing your data…", "Understanding patterns…"
+WRITING, CHECKING = "Writing your personalised report…", "Making sure everything is accurate and carefully worded…"
+STEP_MSG = {"start": ANALYSING, "fetch": ANALYSING, "analyse": PATTERNS, "triage": PATTERNS,
+            "retrieve": WRITING, "write": WRITING, "check": CHECKING, "interpret": CHECKING, "guardrail": CHECKING}
+
+
+def overlay_html(msg: str) -> str:
+    return ("<div class='loading-overlay'><div class='ring'></div>"
+            "<div class='ttl'>Creating your personalised report</div>"
+            f"<div>{msg}</div><div class='note'>This usually takes about a minute. Nothing is stored.</div></div>")
+
+
 def run_report(dataset_id, user_id, age, intake, labs_id=None):
     nodes.http = client_factory()
-    with st.spinner("Analysing your cycles, reading the reference material, writing and checking the report…"):
-        try:
-            out = build_graph().invoke({"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
-                                        "intake": intake, "labs_id": labs_id})
-            cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
-            st.session_state.update(result={"out": out, "cycles": cycles}, step="report")
-            return True
-        except Exception as e:
-            st.session_state.pop("result", None)
-            st.error(f"Something went wrong: {str(e)[:300]}")
-            return False
+    overlay = st.empty()  # full-screen overlay while the agent runs; cleared in `finally`
+    overlay.markdown(overlay_html(STEP_MSG["start"]), unsafe_allow_html=True)
+    try:
+        out = None
+        for mode, chunk in build_graph().stream(
+                {"dataset_id": dataset_id, "user_id": user_id, "age": age or None,
+                 "intake": intake, "labs_id": labs_id}, stream_mode=["updates", "values"]):
+            if mode == "values":
+                out = chunk  # full state after each step; the last one is the result
+            else:
+                for node in chunk:
+                    overlay.markdown(overlay_html(STEP_MSG.get(node, CHECKING)), unsafe_allow_html=True)
+        cycles = api("GET", "/cycles", params={"dataset_id": dataset_id, "user_id": user_id})["cycles"]
+        st.session_state.update(result={"out": out, "cycles": cycles}, step="report", scroll_top=True)
+        return True
+    except Exception as e:
+        st.session_state.pop("result", None)
+        st.error(f"Something went wrong: {str(e)[:300]}")
+        return False
+    finally:
+        overlay.empty()
 
 
 # --- step 1: data + inputs ---------------------------------------------------
 if step == "input" or not st.session_state.get("result"):
-    st.header("Step 1 of 2: your data and symptoms")
-
     st.subheader("Your data")
     mode = st.radio("Source", ["Demo data", "Upload my file"], index=1, horizontal=True)
     dataset_id = None
@@ -225,8 +261,18 @@ if step == "input" or not st.session_state.get("result"):
 
 # --- step 2: report ----------------------------------------------------------
 res = st.session_state["result"]
-st.header("Step 2 of 2: your report")
-if st.button("← Start over"):
+if st.session_state.pop("scroll_top", False):  # new report: start at the top, not where the button was
+    import streamlit.components.v1 as components
+    components.html("""<script>
+      const d = window.parent.document;
+      for (const el of [d.querySelector('[data-testid="stMain"]'), d.querySelector('section.main'),
+                        d.scrollingElement]) { if (el) el.scrollTo({top: 0}); }
+    </script>""", height=0)
+out, cycles = res["out"], res["cycles"]
+report_md = nodes.reader_report(out["human_report"])  # no citation tags; sources go to the Quality tab
+
+
+def start_over():
     labs = st.session_state.get("labs")
     if labs:  # drop the parsed values from the server's memory
         try:
@@ -236,10 +282,12 @@ if st.button("← Start over"):
             pass
     st.session_state.update(step="input", labs=None, labs_key=None)
     st.session_state.pop("result", None)
-    st.rerun()
 
-out, cycles = res["out"], res["cycles"]
-report_md = nodes.reader_report(out["human_report"])  # no citation tags; sources go to the Quality tab
+
+c_back, c_dl, c_mail = st.columns([8, 1.3, 1], vertical_alignment="center")
+c_back.button("← Start over", on_click=start_over)
+c_dl.download_button("Download", report_md, file_name="cycle_report.md", use_container_width=True)
+c_mail.button("Email", on_click=lambda: st.session_state.update(scroll_email=True), use_container_width=True)
 
 def show_chart():
     st.pyplot(cycle_chart(cycles, out["stats"].get("events", [])))
@@ -261,7 +309,6 @@ def report_with_chart(md: str):
 tab_report, tab_findings, tab_quality = st.tabs(["Your report", "Verified findings", "Quality"])
 with tab_report:
     report_with_chart(report_md)
-    st.download_button("Download report (.md)", report_md, file_name="cycle_report.md")
     st.divider()
     st.subheader("Email this report")
     sent = st.session_state.get("emails_sent", 0)
@@ -280,6 +327,12 @@ with tab_report:
             st.error(f"Could not send: {str(e)[:200]}")
     if sent >= MAX_EMAILS:
         st.caption("Email limit reached for this session.")
+    if st.session_state.pop("scroll_email", False):  # the top "Email" button was clicked
+        import streamlit.components.v1 as components
+        components.html("""<script>
+          const h = [...window.parent.document.querySelectorAll('h3')].find(e => e.textContent.includes('Email this report'));
+          if (h) h.scrollIntoView({behavior: 'smooth', block: 'start'});
+        </script>""", height=0)
 with tab_findings:
     st.markdown(out["report"])
     al = ((out.get("findings") or {}).get("labs") or {}).get("alignment")

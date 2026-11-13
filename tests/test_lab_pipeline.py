@@ -71,7 +71,7 @@ GOODLAB = ("# Your cycle report\n## Summary\nYour data shows 26 cycles.\n"
            "- Your oestradiol (E2) is below the lab's range.\n"
            "- Your AMH (anti-Müllerian hormone) is below the lab's range.\n"
            "- Your haemoglobin was 11.5 g/dl, below the lab's range.\n"
-           "## What it could mean together\nChanges can have many causes and a doctor can check them. [S1]\n"
+           "## What it could mean\nChanges can have many causes and a doctor can check them. [S1]\n"
            "## Things that may help\nSome people find sleep routines help. [S1]\n"
            "## Talking to your doctor\nBring these results to your doctor. [S1]")
 

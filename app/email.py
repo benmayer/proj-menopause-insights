@@ -110,7 +110,7 @@ def to_html(md: str, chart_cid: str | None = None) -> str:
     )
 
 
-def send_report(to: str, markdown_report: str, subject: str = "Your cycle report",
+def send_report(to: str, markdown_report: str, subject: str = "Your Menohelp Cycle Report",
                 chart_png: bytes | None = None) -> str:
     """Send the report (HTML + plain-text fallback); returns the Resend message id. Raises on failure."""
     resend.api_key = os.environ["RESEND_API_KEY"]

@@ -3,8 +3,10 @@
 > Next steps after the MVP, not things already built. All audience and
 > metric figures are **hypotheses to test**, not validated facts.
 
-**MVP:** an agent that turns cycle data into a custom perimenopause-pattern
-report. Not diagnostic.
+**MVP (Menohelp):** an agent that turns cycle data, blood test results and symptoms into one
+source-grounded report with practical advice. Not diagnostic.
+
+**Problem:** a perimenopause diagnosis in Germany comes on average 6 years after it starts.
 
 ---
 
@@ -13,9 +15,9 @@ report. Not diagnostic.
 | | |
 |---|---|
 | **Goal** | Prove the report tells people something they didn't already know and would bring to a doctor |
-| **Audience** | 5–8 women aged roughly 38–50 who already track cycles |
+| **Audience** | 5–8 women aged 35–50+ who already track cycles |
 | **Channel** | Personal network and small women's-health communities; free 4-week pilot, one-to-one onboarding |
-| **Deliverable** | Working pipeline run on each participant's exported data + one personalised PDF report each + a short feedback form |
+| **Deliverable** | Working pipeline run on each participant's exported cycle data, blood test PDF and symptom form + one personalised PDF report each + a short feedback form |
 | **Metric** | ≥ 5 reports delivered; ≥ 4 of 6 rate it "useful" (4+/5); ≥ 3 say they'd share it with a doctor |
 
 Notes: participants export their own data and consent in writing; nothing is stored beyond the pilot.
@@ -47,7 +49,8 @@ Notes: participants export their own data and consent in writing; nothing is sto
 ---
 
 ## Cross-sprint requirements
-- **Compliance:** health data is sensitive (GDPR special category in the EU). Before Sprint 1 involves anyone else's data: consent form, data-deletion promise, no logging of raw data.
+- **Licence:** the coaching material behind the advice is licensed for the demo only. Before any paid use, get a licence or replace it. Hosting and pricing are also still open.
+- **Compliance:** health data is sensitive (GDPR special category in the EU). Saved data and consent come before Sprint 1 involves anyone else's data: consent form, data-deletion promise, no logging of raw data.
 - **Storage:** the MVP keeps uploads in memory only (`app/api/store.py`). Before Sprint 1 users rely on it: swap in Supabase persistence with accounts, per-user access (RLS), explicit consent, retention limits and delete-on-request.
 - **Positioning:** wellness insight, not diagnosis. Disclaimer on every report.
 - **Key assumption to test first:** people actually want this, rather than just tracking in their app.

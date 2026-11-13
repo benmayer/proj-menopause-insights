@@ -11,6 +11,10 @@ FAKE = {"report": "# Findings\nok", "human_report": "# Your cycle report\n## Wha
 
 def test_ui_renders_and_generates(monkeypatch):
     class FakeGraph:
+        def stream(self, state, stream_mode=None):
+            yield "updates", {"fetch": {}}
+            yield "values", self.invoke(state)
+
         def invoke(self, state):
             assert state["dataset_id"].startswith("demo_") and state["user_id"]
             return FAKE
@@ -37,6 +41,10 @@ def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
     seen = {}
 
     class FakeGraph:
+        def stream(self, state, stream_mode=None):
+            yield "updates", {"fetch": {}}
+            yield "values", self.invoke(state)
+
         def invoke(self, state):
             seen.update(state)
             return FAKE
@@ -55,7 +63,7 @@ def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
     assert not at.exception, at.exception
     assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["symptoms"]["temperature"] == 3 and seen["intake"]["top_concern"] == "I wake at 3am"
     assert seen["intake"]["hormones"] == "no" and seen["intake"]["last_period"] is None
-    assert any("Step 2 of 2" in h.value for h in at.header)
+    assert any(b.label == "← Start over" for b in at.button)  # report view is showing
 
 
 def test_ui_confirms_lab_values_and_passes_labs_id_to_the_graph(monkeypatch):
@@ -67,6 +75,10 @@ def test_ui_confirms_lab_values_and_passes_labs_id_to_the_graph(monkeypatch):
     seen = {}
 
     class FakeGraph:
+        def stream(self, state, stream_mode=None):
+            yield "updates", {"fetch": {}}
+            yield "values", self.invoke(state)
+
         def invoke(self, state):
             seen.update(state)
             return {**FAKE, "findings": {"labs": {"alignment": {"level": "moderate", "count": 2,

@@ -1,0 +1,7 @@
+# Same palette as the email template (app/email.py)
+[theme]
+base = "light"
+primaryColor = "#8e44ad"
+backgroundColor = "#f2f4f6"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#2c3e50"

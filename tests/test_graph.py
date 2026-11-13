@@ -90,7 +90,7 @@ CTX = [{"section": "knowledge", "title": "Modul 3, S. 19 (#29)", "content": "x"}
        {"section": "reference", "title": "r", "content": "shorter than 21 days"}]
 GOOD = ("# Your cycle report\n## Summary\nYour data shows 6 cycles.\n"
         "## Your cycle\nYour cycles vary more than typical cycles do. [S1]\n"
-        "## What it could mean together\nCycles can change in the transition. [S1]\n"
+        "## What it could mean\nCycles can change in the transition. [S1]\n"
         "## Things that may help\nTracking cycles can help. [S1]\n"
         "## Talking to your doctor\nHormone therapy can be an option to discuss with a GP.\n")
 
@@ -212,9 +212,9 @@ def test_interpret_adds_fixed_red_flag_text_and_symptom_section(monkeypatch):
 
 SYM_CTX = [{"section": "symptom_map", "title": "Sleep regulation", "content": "x"},
            {"section": "reference", "title": "r", "content": "shorter than 21 days"}]
-SYM_GOOD = GOOD.replace("## What it could mean together", "## Your symptoms\n"
+SYM_GOOD = GOOD.replace("## What it could mean", "## Your symptoms\n"
                         "You report sleep symptoms, rated moderate.\n"
-                        "## What it could mean together")
+                        "## What it could mean")
 
 
 def _sym_state(flags=True):
