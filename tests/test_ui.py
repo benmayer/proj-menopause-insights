@@ -17,9 +17,11 @@ def test_ui_renders_and_generates(monkeypatch):
     monkeypatch.setattr("app.agent.graph.build_graph", lambda: FakeGraph())
     at = AppTest.from_file("../ui/app.py", default_timeout=30).run()
     assert not at.exception
+    at.radio[0].set_value("Demo data")
+    at = at.run()
     at.selectbox[0].select("demo_synthetic_perimenopause")
     at = at.run()
-    at.button[0].click()
+    next(b for b in at.button if b.label == "Generate report").click()
     at = at.run()
     assert not at.exception, at.exception
     assert any("hello" in m.value for m in at.markdown)
@@ -40,13 +42,15 @@ def test_ui_passes_symptoms_and_triage_answers_to_the_graph(monkeypatch):
             return FAKE
     monkeypatch.setattr("app.agent.graph.build_graph", lambda: FakeGraph())
     at = AppTest.from_file("../ui/app.py", default_timeout=30).run()
+    at.radio[0].set_value("Demo data")
+    at = at.run()
     at.selectbox[0].select("demo_synthetic_perimenopause")
     at = at.run()
     at.select_slider(key="r_sleep").set_value(2)
     at.select_slider(key="r_temperature").set_value(3)
     at = at.run()
     at.text_input[0].input("I wake at 3am")
-    at.button[0].click()
+    next(b for b in at.button if b.label == "Generate report").click()
     at = at.run()
     assert not at.exception, at.exception
     assert set(seen["intake"]["symptoms"]) == {"sleep", "temperature"} and seen["intake"]["symptoms"]["temperature"] == 3 and seen["intake"]["top_concern"] == "I wake at 3am"
@@ -73,12 +77,25 @@ def test_ui_confirms_lab_values_and_passes_labs_id_to_the_graph(monkeypatch):
     at = at.run()
     assert not at.exception, at.exception
     assert any("Cycle day of the blood draw on 2025-04-03" in n.label for n in at.number_input)
+    at.radio[0].set_value("Demo data")
+    at = at.run()
     at.selectbox[0].select("demo_synthetic_perimenopause")
     at = at.run()
     at.number_input(key=f"cd_{lid}_2025-04-03").set_value(3)   # reader supplies the cycle day
-    at.button[0].click()
+    next(b for b in at.button if b.label == "Generate report").click()
     at = at.run()
     assert not at.exception, at.exception
     assert seen["labs_id"] == lid and seen["age"] == 32                # age filled from the lab report's date of birth
     assert lab_store.get(lid)[0]["cycle_day"] == 3                 # the correction reached the server
     assert any("line up" in e.label for e in at.expander)
+
+
+def test_demo_button_fills_symptom_sliders():
+    at = AppTest.from_file("../ui/app.py", default_timeout=30).run()
+    next(b for b in at.button if b.label == "Fill demo symptoms").click()
+    at = at.run()
+    assert not at.exception, at.exception
+    assert at.select_slider(key="r_breast").value == 3
+    assert at.select_slider(key="r_skin").value == 2
+    assert at.select_slider(key="r_bones").value == 0
+    assert at.text_input(key="top_concern").value.startswith("Heavy PMS")

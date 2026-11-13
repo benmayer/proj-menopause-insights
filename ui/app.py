@@ -3,6 +3,7 @@
 Talks to the FastAPI data service at API_BASE_URL; if none is running it uses the same app in-process.
 Run: streamlit run ui/app.py
 """
+import io
 import os
 import re
 import sys
@@ -11,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -18,6 +20,11 @@ from app.agent import nodes
 from app.agent.symptoms import SYSTEMS
 from app.agent.graph import build_graph
 from ui.charts import cycle_chart
+
+# Demo preset (0 none, 1 mild, 2 moderate, 3 strong); systems not listed stay at none.
+DEMO_SYMPTOMS = {"mind": 1, "sleep": 1, "skin": 2, "breast": 3, "cycle": 3, "heart": 1, "muscles": 1,
+                 "digestion": 1, "temperature": 1}
+DEMO_CONCERN = "Heavy PMS symptoms and mood swings and sadness."
 
 st.set_page_config(page_title="Menohelp", page_icon="🌿", layout="wide")
 API = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
@@ -92,7 +99,7 @@ if step == "input" or not st.session_state.get("result"):
     st.header("Step 1 of 2: your data and symptoms")
 
     st.subheader("Your data")
-    mode = st.radio("Source", ["Demo data", "Upload my file"], horizontal=True)
+    mode = st.radio("Source", ["Demo data", "Upload my file"], index=1, horizontal=True)
     dataset_id = None
     if mode == "Demo data":
         dataset_id = st.selectbox("Demo dataset", api("GET", "/demos")["datasets"])
@@ -174,6 +181,13 @@ if step == "input" or not st.session_state.get("result"):
     st.caption("Rate how much each area bothers you. Leave at 'none' if it doesn't apply. "
                "Your answers are sent to OpenAI to write the report. Please don't type names or contact details. "
                "Nothing is stored.")
+    def fill_demo_symptoms():  # callback: runs before the widgets are built, so it may set their state
+        for k in SYSTEMS:
+            st.session_state[f"r_{k}"] = DEMO_SYMPTOMS.get(k, 0)
+        st.session_state["top_concern"] = DEMO_CONCERN
+
+    st.button("Fill demo symptoms", on_click=fill_demo_symptoms,
+              help="Sets a sample symptom profile so you can try the app without typing.")
     ratings = {}
     for k, (title, examples) in SYSTEMS.items():
         left, right = st.columns([2, 3])
@@ -182,7 +196,7 @@ if step == "input" or not st.session_state.get("result"):
                                 format_func=RATING.get, label_visibility="collapsed")
         if v:
             ratings[k] = v
-    top_concern = st.text_input("What bothers you most? (optional)", max_chars=200,
+    top_concern = st.text_input("What bothers you most? (optional)", max_chars=200, key="top_concern",
                                 placeholder="e.g. I wake at 3am and can't get back to sleep")
 
     go = st.button("Generate report", type="primary", disabled=not dataset_id)
@@ -255,7 +269,11 @@ with tab_report:
     if st.button("Send email", disabled=not to or sent >= MAX_EMAILS):
         try:
             from app.email import send_report
-            send_report(to, report_md)
+            buf = io.BytesIO()
+            fig = cycle_chart(cycles, out["stats"].get("events", []))
+            fig.savefig(buf, format="png", dpi=150)
+            plt.close(fig)
+            send_report(to, report_md, chart_png=buf.getvalue())
             st.session_state["emails_sent"] = sent + 1
             st.success("Sent. The address is not stored.")
         except Exception as e:
